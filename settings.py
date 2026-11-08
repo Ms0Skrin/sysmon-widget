@@ -143,13 +143,13 @@ class SettingsWindow:
         cb.pack(fill="x", pady=int(1 * self.app.s))
         return cb
 
-    def slider(self, parent, text, value, lo, hi, cmd):
+    def slider(self, parent, text, value, lo, hi, cmd, fmt=lambda v: f"{v}%"):
         s = self.app.s
         row = tk.Frame(parent, bg=T["bg"])
         row.pack(fill="x", pady=int(2 * s))
         tk.Label(row, text=text, bg=T["bg"], fg=T["fg"], font=font(10), width=22,
                  anchor="w").pack(side="left")
-        val = tk.Label(row, text=f"{value}%", bg=T["bg"], fg=T["accent"], font=font(10, True), width=5)
+        val = tk.Label(row, text=fmt(value), bg=T["bg"], fg=T["accent"], font=font(10, True), width=6)
         val.pack(side="right")
         sc = tk.Scale(row, from_=lo, to=hi, orient="horizontal", showvalue=False, resolution=1,
                       bg=T["bg"], fg=T["fg"], troughcolor=T["panel"], activebackground=T["accent"],
@@ -159,7 +159,7 @@ class SettingsWindow:
         sc.pack(side="left", fill="x", expand=True, padx=int(8 * s))
 
         def changed(v):
-            val.config(text=f"{int(float(v))}%")
+            val.config(text=fmt(int(float(v))))
             cmd(int(float(v)))
 
         sc.config(command=changed)
@@ -180,6 +180,10 @@ class SettingsWindow:
         self.refresh_hotkey()
         self.slider(p, "Непрозрачность панели", int(app.cfg["launcher_alpha"] * 100), 30, 100,
                     app.set_launcher_alpha)
+        self.slider(p, "Размер значков", int(app.cfg.get("launcher_icon", 40)), 24, 96,
+                    app.launcher.set_icon_size, fmt=lambda v: f"{v} px")
+        self.slider(p, "Колонок в панели", int(app.cfg.get("launcher_cols", 0)), 0, 12,
+                    app.launcher.set_cols, fmt=lambda v: "авто" if v == 0 else str(v))
 
         self.section(p, "Рабочий стол")
         app.v_icons_hidden.set(not desktop.icons_visible())

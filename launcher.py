@@ -10,12 +10,13 @@ from PIL import ImageTk
 
 from appscan import AppPicker
 from icons import file_icon
-from theme import T, font, round_corners, round_region
+from theme import T, blend, font, round_region
 
 user32 = ctypes.windll.user32
+winmm = ctypes.windll.winmm
 START_MENU = os.path.join(os.environ.get("ProgramData", "C:\\ProgramData"),
                           r"Microsoft\Windows\Start Menu\Programs")
-OPEN_MS, CLOSE_MS, FRAME_MS = 230, 150, 12
+OPEN_MS, CLOSE_MS, FRAME_MS = 300, 190, 7
 
 
 class MONITORINFO(ctypes.Structure):
@@ -38,7 +39,11 @@ def work_area(x, y):
 
 
 def ease_out(t):
-    return 1 - (1 - t) ** 3
+    return 1 - (1 - t) ** 5      # мягкое торможение в конце
+
+
+def ease_in(t):
+    return t * t * t
 
 
 def grid_cols(total):
@@ -46,18 +51,54 @@ def grid_cols(total):
     return max(3, min(8, cols, max(total, 3)))
 
 
+ICON_MIN, ICON_MAX = 24, 96
+COLS_MAX = 12
+
+
 class Launcher:
     def __init__(self, root, cfg, save, scale, hotkey_text):
         self.root, self.cfg, self.save, self.s = root, cfg, save, scale
         self.hotkey_text = hotkey_text
         self.top = None
+        self.ghost = None
         self.busy = False
-        self._icons = {}      # (path, bg) -> PhotoImage
+        self._icons = {}      # (path, bg, size) -> PhotoImage
         self._anim = None
         self._origin = None
         self._closing = False
+        self._save_job = None
         self.query = ""
         self.radius = int(14 * scale)
+
+    # ---------- размеры (меняются пользователем) ----------
+    @property
+    def icon_px(self):
+        return int(max(ICON_MIN, min(ICON_MAX, self.cfg.get("launcher_icon", 40))) * self.s)
+
+    def tile_size(self):
+        ic = self.icon_px
+        return max(int(76 * self.s), ic + int(50 * self.s)), ic + int(52 * self.s)
+
+    def cols_for(self, total):
+        fixed = int(self.cfg.get("launcher_cols", 0) or 0)
+        return max(1, min(COLS_MAX, fixed)) if fixed else grid_cols(max(total, 1))
+
+    def set_icon_size(self, px, persist=True):
+        self.cfg["launcher_icon"] = int(max(ICON_MIN, min(ICON_MAX, px)))
+        self._rebuild()
+        if persist:
+            self._save_later()
+
+    def set_cols(self, n, persist=True):
+        self.cfg["launcher_cols"] = int(max(0, min(COLS_MAX, n)))
+        self._rebuild()
+        if persist:
+            self._save_later()
+
+    def _save_later(self):
+        if self._save_job:
+            self.root.after_cancel(self._save_job)
+        self._save_job = self.root.after(400, lambda: self.save(self.cfg))
 
     # ---------- показ / скрытие ----------
     def visible(self):
@@ -85,21 +126,37 @@ class Launcher:
         top = self.top = tk.Toplevel(self.root, bg=T["bg"])
         top.overrideredirect(True)
         top.attributes("-topmost", True)
-        top.attributes("-alpha", 0.0 if animate else self.cfg["launcher_alpha"])
+        top.withdraw()  # покажем, когда долетит «тень» (позиция скрытого окна не применяется)
         self.body = tk.Frame(top, bg=T["bg"])
         self._build()
         top.bind("<Escape>", lambda _e: self.hide())
         top.bind("<KeyPress>", self._on_key)
+        top.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
         top.bind("<FocusOut>", lambda _e: top.after(150, self._check_focus))
-        round_corners(top)
-        self._layout(animate)
+        x, y, w, h = self._rect = self._target()
+        self.body.place(relx=0.5, rely=0.5, anchor="center", width=w, height=h)
+        if animate:
+            self._fly(opening=True)
+        else:
+            self._reveal()
+
+    def _reveal(self):
+        """Показать настоящую панель на её месте."""
+        top = self.top
+        x, y, w, h = self._rect
+        top.attributes("-alpha", self.cfg["launcher_alpha"])
+        top.deiconify()
+        top.geometry(f"{w}x{h}+{x}+{y}")
+        round_region(top, self.radius, w, h)
+        top.update_idletasks()
         self._focus()
 
     def hide(self):
         if not self.visible() or self._closing:
             return
         self._closing = True
-        self._animate(opening=False)
+        self.top.withdraw()
+        self._fly(opening=False)
 
     def _destroy(self):
         if self._anim:
@@ -108,17 +165,73 @@ class Launcher:
             except Exception:
                 pass
             self._anim = None
-        if self.visible():
-            self.top.destroy()
-        self.top = None
+        for w in (self.ghost, self.top):
+            if w is not None and w.winfo_exists():
+                w.destroy()
+        self.ghost = self.top = None
         self._closing = False
+
+    # ---------- анимация: летит лёгкая «тень», потом проявляется панель ----------
+    def _fly(self, opening):
+        x1, y1, w1, h1 = self._rect   # окно ещё не показано — winfo_x/y тут вернули бы 0
+        ox, oy = self._origin
+        w0, h0 = max(36, int(w1 * 0.12)), max(28, int(h1 * 0.12))
+        x0, y0 = ox - w0 / 2, oy - h0 / 2
+        alpha = self.cfg["launcher_alpha"]
+        dur = OPEN_MS if opening else CLOSE_MS
+
+        g = self.ghost = tk.Toplevel(self.root, bg=T["bg"])
+        g.overrideredirect(True)
+        g.attributes("-topmost", True)
+        g.attributes("-alpha", 0.0)
+        tk.Frame(g, bg=blend(T["accent"], T["bg"], 0.10)).place(relx=0, rely=0, relwidth=1, height=max(2, int(3 * self.s)))
+        start = [None]
+        winmm.timeBeginPeriod(1)  # точный таймер на время анимации: кадры ~7 мс вместо 15.6 мс
+
+        def frame():
+            if g is not self.ghost or not g.winfo_exists():
+                winmm.timeEndPeriod(1)
+                return
+            now = self.root.tk.call("clock", "milliseconds")
+            if start[0] is None:
+                start[0] = now
+            t = min(1.0, (now - start[0]) / dur)
+            k = ease_out(t) if opening else 1 - ease_in(t)
+            x, y = x0 + (x1 - x0) * k, y0 + (y1 - y0) * k
+            w, h = w0 + (w1 - w0) * k, h0 + (h1 - h0) * k
+            g.geometry(f"{int(w)}x{int(h)}+{int(x)}+{int(y)}")
+            round_region(g, self.radius * (0.6 + 0.4 * k), w, h)
+            g.attributes("-alpha", alpha * min(1.0, 0.25 + 0.75 * k))
+            if t < 1:
+                self._anim = self.root.after(FRAME_MS, frame)
+                return
+            self._anim = None
+            winmm.timeEndPeriod(1)
+            if opening:  # тень на месте — показываем настоящую панель и убираем тень
+                self._reveal()
+                self.root.after(30, lambda: (g.destroy() if g.winfo_exists() else None))
+                self.ghost = None
+            else:
+                self._destroy()
+
+        frame()
+
+    def prewarm(self, i=0):
+        """Заранее готовим иконки в фоне, чтобы первое открытие было мгновенным."""
+        apps = self.cfg["apps"]
+        if i < len(apps):
+            try:
+                self._icon(apps[i])
+            except Exception:
+                pass
+            self.root.after(40, lambda: self.prewarm(i + 1))
 
     # ---------- построение ----------
     def _build(self):
         s, b = self.s, self.body
         for c in b.winfo_children():
             c.destroy()
-        pad = int(16 * s)
+        pad = self.pad = int(16 * s)
         head = tk.Frame(b, bg=T["bg"])
         head.pack(fill="x", padx=pad, pady=(pad, int(10 * s)))
         tk.Label(head, text="Приложения", bg=T["bg"], fg=T["fg"], font=font(13, True)).pack(side="left")
@@ -132,9 +245,23 @@ class Launcher:
         self.grid.pack(padx=pad)
         self._fill_grid()
 
-        hint = f"1–9 — запуск · печатай для поиска · Enter — первое · Esc — закрыть · {self.hotkey_text()}"
+        hint = (f"1–9 — запуск · печатай для поиска · Ctrl+колесо — размер значков · "
+                f"тяни уголок — колонки · {self.hotkey_text()}")
         tk.Label(b, text=hint, bg=T["bg"], fg=T["muted"], font=font(8)).pack(
             anchor="w", padx=pad, pady=(int(10 * s), pad))
+
+        # уголок для изменения размера (число колонок)
+        gs = int(16 * s)
+        grip = tk.Canvas(b, width=gs, height=gs, bg=T["bg"], highlightthickness=0, cursor="size_nw_se")
+        for i in range(3):
+            for j in range(i + 1):
+                cx, cy = gs - 4 * s - (i - j) * 4 * s, gs - 4 * s - j * 4 * s
+                r = 1.1 * s
+                grip.create_oval(cx - r, cy - r, cx + r, cy + r, fill=T["muted"], outline="")
+        grip.place(relx=1.0, rely=1.0, anchor="se", x=-int(5 * s), y=-int(5 * s))
+        grip.bind("<ButtonPress-1>", self._grip_start)
+        grip.bind("<B1-Motion>", self._grip_move)
+        grip.bind("<ButtonRelease-1>", lambda _e: self._save_later())
 
     def _visible_apps(self):
         q = self.query.lower()
@@ -146,8 +273,8 @@ class Launcher:
             c.destroy()
         items = self._visible_apps()
         total = len(items) + (0 if self.query else 1)
-        cols = grid_cols(max(total, 1))
-        g = int(4 * s)
+        cols = self.cols = self.cols_for(total)
+        g = self.gap = int(4 * s)
         for n, (i, app) in enumerate(items):
             self._tile(i, app, n).grid(row=n // cols, column=n % cols, padx=g, pady=g)
         if not self.query:
@@ -159,23 +286,26 @@ class Launcher:
         self.search_lbl.config(text=f"🔍 {self.query}" if self.query else "")
 
     def _icon(self, app):
-        key = (app["path"], T["panel"])
+        size = self.icon_px
+        key = (app["path"], T["panel"], size)
         if key not in self._icons:
-            img = file_icon(app["path"], int(40 * self.s), T["panel"], app["name"], T["accent"])
+            img = file_icon(app["path"], size, T["panel"], app["name"], T["accent"])
             self._icons[key] = ImageTk.PhotoImage(img)
         return self._icons[key]
 
     def _make_tile(self, image, text, badge=None, image_text=None):
         s = self.s
-        f = tk.Frame(self.grid, bg=T["panel"], width=int(92 * s), height=int(90 * s), cursor="hand2")
+        tw, th = self.tile_size()
+        f = tk.Frame(self.grid, bg=T["panel"], width=tw, height=th, cursor="hand2")
         f.pack_propagate(False)
         if image is not None:
             ic = tk.Label(f, image=image, bg=T["panel"])
         else:
-            ic = tk.Label(f, text=image_text, bg=T["panel"], fg=T["accent"], font=font(22))
-        ic.pack(pady=(int(11 * s), int(4 * s)))
-        name = tk.Label(f, text=text, bg=T["panel"], fg=T["fg"], font=font(8),
-                        wraplength=int(84 * s), justify="center")
+            ic = tk.Label(f, text=image_text, bg=T["panel"], fg=T["accent"],
+                          font=font(max(14, int(self.icon_px / s * 0.55))))
+        ic.pack(pady=(int(10 * s), int(4 * s)))
+        name = tk.Label(f, text=text, bg=T["panel"], fg=T["fg"], font=font(9 if self.icon_px / s >= 56 else 8),
+                        wraplength=tw - int(8 * s), justify="center")
         name.pack()
         widgets = [f, ic, name]
         if badge:
@@ -206,66 +336,45 @@ class Launcher:
             w.bind("<ButtonRelease-1>", self._add_menu)
         return f
 
-    # ---------- геометрия и анимация ----------
+    # ---------- размер мышью ----------
+    def _on_ctrl_wheel(self, e):
+        step = 4 if e.delta > 0 else -4
+        self.set_icon_size(self.cfg.get("launcher_icon", 40) + step)
+        return "break"
+
+    def _grip_start(self, e):
+        self._grip = (e.x_root, self.top.winfo_width(), self.cols)
+
+    def _grip_move(self, e):
+        x0, w0, cols0 = self._grip
+        tw, _ = self.tile_size()
+        cell = tw + 2 * self.gap
+        # панель по центру — тянем вправо на dx, значит ширина растёт на 2*dx
+        cols = round((w0 + 2 * (e.x_root - x0) - 2 * self.pad) / cell)
+        cols = max(2, min(COLS_MAX, cols))
+        if cols != self.cols:
+            self.cfg["launcher_cols"] = cols
+            self._fill_grid()
+            self._relayout()
+
+    # ---------- геометрия ----------
     def _target(self):
+        """Центр монитора, на котором источник (виджет или курсор)."""
         self.body.update_idletasks()
         w, h = self.body.winfo_reqwidth(), self.body.winfo_reqheight()
-        l, t, r, b = work_area(0, 0)  # всегда центр основного экрана
+        l, t, r, b = work_area(*self._origin)
+        w, h = min(w, r - l - 16), min(h, b - t - 16)
         return (l + r) // 2 - w // 2, (t + b) // 2 - h // 2, w, h
-
-    def _layout(self, animate):
-        x, y, w, h = self._target()
-        self.body.place(relx=0.5, rely=0.5, anchor="center", width=w, height=h)
-        if animate:
-            self._animate(opening=True)
-        else:
-            self.top.geometry(f"{w}x{h}+{x}+{y}")
-            round_region(self.top, self.radius, w, h)
-
-    def _animate(self, opening):
-        top = self.top
-        x1, y1, w1, h1 = self._target()
-        ox, oy = self._origin
-        w0, h0 = max(40, int(w1 * 0.2)), max(30, int(h1 * 0.2))
-        x0, y0 = ox - w0 // 2, oy - h0 // 2
-        alpha = self.cfg["launcher_alpha"]
-        dur = OPEN_MS if opening else CLOSE_MS
-        if not opening:  # сворачиваемся из текущего положения обратно к источнику
-            x0, y0, w0, h0, x1, y1, w1, h1 = x1, y1, w1, h1, x0, y0, w0, h0
-        start = [None]
-
-        def frame():
-            if not self.visible():
-                return
-            now = self.root.tk.call("clock", "milliseconds")
-            if start[0] is None:
-                start[0] = now
-            t = min(1.0, (now - start[0]) / dur)
-            k = ease_out(t) if opening else t * t
-            x, y = x0 + (x1 - x0) * k, y0 + (y1 - y0) * k
-            w, h = w0 + (w1 - w0) * k, h0 + (h1 - h0) * k
-            a = alpha * (k if opening else 1 - k)
-            top.geometry(f"{int(w)}x{int(h)}+{int(x)}+{int(y)}")
-            round_region(top, self.radius * min(1.0, w / max(w1, w0)), w, h)
-            top.attributes("-alpha", max(0.0, min(1.0, a)))
-            if t < 1:
-                self._anim = self.root.after(FRAME_MS, frame)
-            else:
-                self._anim = None
-                if not opening:
-                    self._destroy()
-
-        frame()
 
     def _relayout(self):
         """После поиска/правок — подогнать размер без анимации, оставаясь по центру."""
-        if not self.visible():
+        if not self.visible() or self._closing:
             return
-        x, y, w, h = self._target()
+        x, y, w, h = self._rect = self._target()
         self.body.place_configure(width=w, height=h)
         self.top.geometry(f"{w}x{h}+{x}+{y}")
         round_region(self.top, self.radius, w, h)
-        self.top.attributes("-alpha", self.cfg["launcher_alpha"])
+
 
     def _focus(self):
         try:
@@ -328,7 +437,7 @@ class Launcher:
                 self._focus()
 
     def _rebuild(self):
-        if self.visible():
+        if self.visible() and not self._closing:
             self._fill_grid()
             self._relayout()
 
@@ -342,6 +451,7 @@ class Launcher:
         known = {a["path"].lower() for a in self.cfg["apps"]}
         self.cfg["apps"].extend(a for a in apps if a["path"].lower() not in known)
         self.save(self.cfg)
+        self.root.after(200, self.prewarm)
         self._rebuild()
 
     def pick_installed(self, master=None):

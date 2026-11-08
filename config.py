@@ -15,6 +15,8 @@ DEFAULTS = {
     "hotkey": {"mods": 3, "vk": 0x20},  # Ctrl+Alt+Space
     "apps": [],  # [{"name": str, "path": str}]; path может быть shell:AppsFolder\<AppID>
     "launcher_alpha": 0.92,
+    "launcher_icon": 40,     # размер значков в панели приложений, px
+    "launcher_cols": 0,      # колонок в панели (0 — авто)
     "theme": "graphite",
     "graph_style": "",       # "" — как в теме
     "lhm_enabled": True,     # встроенные датчики LibreHardwareMonitor

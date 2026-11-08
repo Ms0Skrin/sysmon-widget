@@ -183,6 +183,7 @@ class Widget:
         self.hotkey_ok = self.apply_hotkey()
         self.start_tray()
         root.after(200, self.tick)
+        root.after(1200, self.launcher.prewarm)
         root.after(50, self.poll_cmds)
         if selftest:
             root.after(6000, self.selftest_dump)

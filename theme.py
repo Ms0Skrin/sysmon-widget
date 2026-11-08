@@ -175,6 +175,8 @@ ctypes.windll.user32.SetWindowRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, 
 def round_region(tk_window, radius, w=None, h=None):
     """Скругление через форму окна — работает и там, где не работает DWM (окна без рамки)."""
     try:
+        # сначала применяем отложенную геометрию, иначе SetWindowRgn откатит позицию окна в 0,0
+        tk_window.update_idletasks()
         w = int(w or tk_window.winfo_width())
         h = int(h or tk_window.winfo_height())
         rgn = _gdi32.CreateRoundRectRgn(0, 0, w + 1, h + 1, int(radius * 2), int(radius * 2))
