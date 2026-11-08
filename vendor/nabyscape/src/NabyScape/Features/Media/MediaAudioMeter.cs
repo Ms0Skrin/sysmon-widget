@@ -1,0 +1,111 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using NAudio.CoreAudioApi;
+
+namespace NabyScape;
+
+public sealed partial class AudioService
+{
+    private PeakCache<MediaEndpoint>? mediaPeaks;
+    private string mediaPeakSource="";
+    internal bool MediaMeterMuted { get; private set; }
+    private int meterSessions,meterAudible;
+    internal int MediaMeterSessions=>meterSessions;
+    internal int MediaAudibleSessions=>meterAudible;
+    internal float CurrentMediaPeak {get;private set;}
+    private sealed record MediaEndpoint(MMDevice Device,List<AudioSessionControl> Sessions) : IDisposable
+    {
+        private string? id;
+        internal string Id=>id??=Device.ID;
+        public void Dispose(){try{foreach(var session in Sessions)try{session.Dispose();}catch{}}finally{Device.Dispose();}}
+    }
+    private float ReadMediaEndpoint(MediaEndpoint endpoint)
+    {
+        float peak=0;bool outputMuted=endpoint.Device.AudioEndpointVolume.Mute;
+        foreach(var session in endpoint.Sessions)
+        {
+            meterSessions++;
+            if(outputMuted || session.SimpleAudioVolume.Mute || session.SimpleAudioVolume.Volume<=0)continue;
+            meterAudible++;mediaOutputs.Add(endpoint.Id);peak=Math.Max(peak,session.AudioMeterInformation.MasterPeakValue);
+        }
+        return peak;
+    }
+    internal static bool MediaProcessMatches(string source,string process)
+    {
+        source=source.ToLowerInvariant();process=process.ToLowerInvariant();
+        return process.Length>2 && (source==process || source==process+".exe" || source.StartsWith(process+".") || source.StartsWith(process+"_") || source.Contains("."+process+"_") || source.EndsWith("!"+process));
+    }
+    private readonly MediaSampleGate mediaSampleGate=new();
+    internal MediaLevelSnapshot MediaLevel {get;private set;}
+    internal Func<float>? DiagnosticPeak;
+    internal long DiagnosticMeterReads {get;private set;}
+    internal long DiagnosticSpectrumSamples {get;private set;}
+    private long spectrumSequence,lastMediaDemand;
+    internal void TrimIdleMedia()
+    {
+        if(lastMediaDemand==0 || Stopwatch.GetElapsedTime(lastMediaDemand).TotalSeconds<2)return;
+        lastMediaDemand=0;mediaPeaks?.Dispose();mediaPeaks=null;mediaPeakSource="";mediaSampleGate.Reset();
+        outputSpectrum?.Stop();MediaSpectrum=null;mediaOutputs.Clear();Array.Clear(spectrumBands);
+        CurrentMediaPeak=0;MediaMeterMuted=false;meterSessions=meterAudible=0;MediaLevel=default;spectrumSequence=0;
+    }
+    internal float MediaPeak(string? source,bool includeSpectrum=true)
+    {
+        long stamp=Stopwatch.GetTimestamp();lastMediaDemand=stamp;
+        if(mediaSampleGate.Accept(source,stamp))
+        {
+            float peak=ReadMediaPeak(source);MediaLevel=new(mediaSampleGate.Sequence,stamp,peak,MediaMeterMuted,meterSessions,meterAudible);
+        }
+        // An ambient-only consumer needs the session envelope, not output capture/FFT.
+        // A later waveform can still request bands from this same shared sample.
+        if(includeSpectrum && spectrumSequence!=MediaLevel.Sequence)
+        {spectrumSequence=MediaLevel.Sequence;DiagnosticSpectrumSamples++;SampleSpectrum(source);}
+        return MediaLevel.Peak;
+    }
+    private float ReadMediaPeak(string? source)
+    {
+        DiagnosticMeterReads++;mediaOutputs.Clear();
+        if(DiagnosticPeak!=null){meterSessions=meterAudible=1;MediaMeterMuted=false;return CurrentMediaPeak=DiagnosticPeak();}
+        if(disposed || string.IsNullOrWhiteSpace(source)){MediaMeterMuted=false;meterSessions=meterAudible=0;return CurrentMediaPeak=0;}
+        if(mediaPeaks==null || mediaPeakSource!=source)
+        {
+            mediaPeaks?.Dispose();mediaPeakSource=source;
+            mediaPeaks=new PeakCache<MediaEndpoint>(()=>DiscoverMediaSessions(source),ReadMediaEndpoint,endpoint=>endpoint.Dispose(),ex=>AudioError(ex));
+        }
+        meterSessions=meterAudible=0;
+        float peak=mediaPeaks.Read(DateTimeOffset.UtcNow);
+        MediaMeterMuted=meterSessions>0 && meterAudible==0;
+        return CurrentMediaPeak=peak;
+    }
+    private IEnumerable<MediaEndpoint> DiscoverMediaSessions(string source)
+    {
+        var found=new List<MediaEndpoint>();
+        try
+        {
+            foreach(var device in EndpointEnumerator.EnumerateAudioEndPoints(DataFlow.Render,DeviceState.Active))
+            {
+                var matches=new List<AudioSessionControl>();
+                try
+                {
+                    var sessions=device.AudioSessionManager.Sessions;
+                    for(int i=0;i<sessions.Count;i++)
+                    {
+                        var session=sessions[i];bool keep=false;
+                        try
+                        {
+                            using var process=Process.GetProcessById((int)session.GetProcessID);
+                            keep=MediaProcessMatches(source,process.ProcessName);
+                            if(keep)matches.Add(session);
+                        }
+                        catch { /* Expired/system sessions have no readable process. */ }
+                        finally{if(!keep)session.Dispose();}
+                    }
+                }
+                catch(Exception ex){AudioError(ex);}
+                if(matches.Count>0)found.Add(new(device,matches));else device.Dispose();
+            }
+        }
+        catch(Exception ex){AudioError(ex);}
+        return found;
+    }
+}

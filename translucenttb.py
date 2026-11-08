@@ -24,6 +24,17 @@ MODES = [("", "Как в Windows"), ("clear", "Прозрачная"), ("blur", 
          ("acrylic", "Акрил"), ("tint", "Цвет темы виджета")]
 
 
+def _from_bundle():
+    """TranslucentTB пишет settings.json рядом с exe, а Program Files нам не писать —
+    поэтому копируем комплектную версию в профиль пользователя."""
+    from paths import THIRD_PARTY
+    src = os.path.join(THIRD_PARTY, "translucenttb")
+    if os.path.isdir(src):
+        shutil.copytree(src, os.path.join(BASE, "app"), dirs_exist_ok=True)
+        return True
+    return False
+
+
 def exe_path():
     for root, _d, files in os.walk(BASE) if os.path.isdir(BASE) else []:
         for f in files:
@@ -84,7 +95,7 @@ def apply(mode, tint_hex="#000000"):
     if not mode:
         stop()
         return
-    exe = exe_path() or (install() and exe_path())
+    exe = exe_path() or (_from_bundle() and exe_path()) or (install() and exe_path())
     if not exe:
         raise RuntimeError("Не удалось установить TranslucentTB")
     cfg_path = os.path.join(os.path.dirname(exe), "settings.json")

@@ -3,10 +3,9 @@ import ctypes
 import os
 import subprocess
 
-from sensor_host import (APP_DIR, HOST_MUTEX, NO_WINDOW, STOP_PATH, TASK_NAME, TASK_PATH,
-                         mutex_exists, pawnio_installed, pythonw)
-
-HOST_SCRIPT = os.path.join(APP_DIR, "sensor_host.py")
+from paths import APP_DIR, quote, sensors_cmd
+from sensor_host import (HOST_MUTEX, NO_WINDOW, STOP_PATH, TASK_NAME, TASK_PATH, mutex_exists,
+                         pawnio_installed)
 shell32 = ctypes.windll.shell32
 shell32.ShellExecuteW.restype = ctypes.c_void_p
 
@@ -30,8 +29,8 @@ def is_admin():
 
 def run_elevated(*args):
     """Запуск sensor_host.py с правами администратора (окно UAC). → True, если согласились."""
-    params = " ".join([f'"{HOST_SCRIPT}"', *args])
-    r = shell32.ShellExecuteW(None, "runas", pythonw(), params, APP_DIR, 0)
+    cmd = sensors_cmd(*args)
+    r = shell32.ShellExecuteW(None, "runas", cmd[0], quote(cmd[1:]), APP_DIR, 0)
     return (r or 0) > 32
 
 
@@ -49,7 +48,7 @@ def start_host(allow_uac=True):
         if r.returncode == 0:
             return True
     if is_admin():
-        subprocess.Popen([pythonw(), HOST_SCRIPT], cwd=APP_DIR, creationflags=NO_WINDOW)
+        subprocess.Popen(sensors_cmd(), cwd=APP_DIR, creationflags=NO_WINDOW)
         return True
     return run_elevated() if allow_uac else False
 

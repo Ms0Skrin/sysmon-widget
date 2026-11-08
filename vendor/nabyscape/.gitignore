@@ -1,0 +1,13 @@
+bin/
+obj/
+artifacts*/
+outputs/
+/diagnostics/
+test-profile/
+.superpowers/
+.vs/
+*.user
+*.suo
+/release-output/
+__pycache__/
+.vercel/

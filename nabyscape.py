@@ -36,10 +36,24 @@ def _arch():
     return "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64"
 
 
+def _bundled_dir():
+    from paths import THIRD_PARTY
+    return os.path.join(THIRD_PARTY, "nabyscape")
+
+
 def exe_path():
-    if not os.path.isdir(APP_DIR):
+    """Скачанное обновление (если есть) важнее версии из установщика."""
+    for base in (APP_DIR, _bundled_dir()):
+        exe = _find_exe(base)
+        if exe:
+            return exe
+    return None
+
+
+def _find_exe(base):
+    if not os.path.isdir(base):
         return None
-    for root, _dirs, files in os.walk(APP_DIR):
+    for root, _dirs, files in os.walk(base):
         for f in files:
             if f.lower() == "nabyscape.exe":
                 return os.path.join(root, f)
@@ -51,11 +65,13 @@ def installed():
 
 
 def installed_version():
-    try:
-        with open(VERSION_FILE, encoding="utf-8") as f:
-            return f.read().strip()
-    except OSError:
-        return None
+    for path in (VERSION_FILE, os.path.join(_bundled_dir(), "version.txt")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return f.read().strip()
+        except OSError:
+            continue
+    return None
 
 
 def running():

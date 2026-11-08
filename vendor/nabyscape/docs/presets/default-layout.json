@@ -1,0 +1,298 @@
+{
+  "format": "luma.layout.v1",
+  "values": {
+    "HoverFollowsWidgets": true,
+    "FollowMonitorAnimation": true,
+    "FollowMonitorDuration": 360,
+    "DockUnlocked": false,
+    "PanelAutoHeight": true,
+    "BrowserMediaPreviews": true,
+    "WaveformSource": "Spectrum",
+    "WaveformSensitivity": 3,
+    "LyricsAnimation": "Slide",
+    "LyricsOffset": 0,
+    "HideFullscreen": true,
+    "HideMaximized": true,
+    "AlwaysTucked": false,
+    "TuckEdge": 2,
+    "Preset": "Mac",
+    "Width": 400,
+    "Height": 41,
+    "Radius": 13,
+    "Top": 0,
+    "Horizontal": 50,
+    "DockEdge": "Top",
+    "DockVertical": 90,
+    "DockInset": 0,
+    "Monitor": "",
+    "DisplayMode": "Primary",
+    "Background": "#000000",
+    "Accent": "#FFFFFF",
+    "Opacity": 1,
+    "SettingsMaterial": "Solid",
+    "GlassStyle": false,
+    "GlassStrength": 0.99,
+    "CoverAmbient": true,
+    "ClosedAmbient": true,
+    "AmbientStrength": 0.2,
+    "AmbientSpread": 1.52,
+    "AmbientMotion": "Breathe",
+    "AmbientScope": "Music only",
+    "AmbientWidgets": [
+      "media",
+      "volume",
+      "timer",
+      "stopwatch",
+      "focus",
+      "clock",
+      "system",
+      "battery",
+      "shortcuts",
+      "files",
+      "notes",
+      "tasks",
+      "clips",
+      "calendar",
+      "awake",
+      "links",
+      "closed",
+      "ai"
+    ],
+    "AmbientColorSource": "Album cover",
+    "AmbientCustomColor": "#7AA8DC",
+    "AmbientSecondaryColor": "#CB72D9",
+    "AmbientPalette": "Cover blend",
+    "AmbientDirection": "Bottom",
+    "AmbientHeight": 1.26,
+    "AmbientBalance": 0.16,
+    "AmbientSoftness": 0.4,
+    "AmbientAudioResponse": "Responsive",
+    "AmbientSensitivity": 3,
+    "InteractionMotion": "Subtle",
+    "AlbumAccent": true,
+    "PanelWidth": 526,
+    "PanelMaxHeight": 417,
+    "PanelPadding": 32,
+    "PanelScale": 1.04,
+    "SectionGap": 18,
+    "HoverWidth": 447,
+    "HoverHeight": 207,
+    "HoverDelayMs": 180,
+    "HoverDetailDelayMs": 550,
+    "SwipeDistance": 48,
+    "HoverViews": [
+      {
+        "Id": "media",
+        "Enabled": true
+      },
+      {
+        "Id": "timer",
+        "Enabled": true
+      },
+      {
+        "Id": "focus",
+        "Enabled": true
+      },
+      {
+        "Id": "calendar",
+        "Enabled": true
+      },
+      {
+        "Id": "notes",
+        "Enabled": true
+      },
+      {
+        "Id": "files",
+        "Enabled": true
+      },
+      {
+        "Id": "system",
+        "Enabled": false
+      },
+      {
+        "Id": "clips",
+        "Enabled": false
+      },
+      {
+        "Id": "tasks",
+        "Enabled": false
+      },
+      {
+        "Id": "stopwatch",
+        "Enabled": false
+      },
+      {
+        "Id": "volume",
+        "Enabled": true
+      },
+      {
+        "Id": "weather",
+        "Enabled": true
+      },
+      {
+        "Id": "clock",
+        "Enabled": true
+      },
+      {
+        "Id": "battery",
+        "Enabled": true
+      },
+      {
+        "Id": "shortcuts",
+        "Enabled": true
+      },
+      {
+        "Id": "awake",
+        "Enabled": true
+      },
+      {
+        "Id": "links",
+        "Enabled": true
+      },
+      {
+        "Id": "voice",
+        "Enabled": true
+      }
+    ],
+    "Widgets": [
+      {
+        "Id": "media",
+        "Enabled": true
+      },
+      {
+        "Id": "volume",
+        "Enabled": true
+      },
+      {
+        "Id": "timer",
+        "Enabled": true
+      },
+      {
+        "Id": "focus",
+        "Enabled": true
+      },
+      {
+        "Id": "clock",
+        "Enabled": true
+      },
+      {
+        "Id": "weather",
+        "Enabled": true
+      },
+      {
+        "Id": "system",
+        "Enabled": true
+      },
+      {
+        "Id": "battery",
+        "Enabled": true
+      },
+      {
+        "Id": "shortcuts",
+        "Enabled": true
+      },
+      {
+        "Id": "stopwatch",
+        "Enabled": true
+      },
+      {
+        "Id": "files",
+        "Enabled": true
+      },
+      {
+        "Id": "notes",
+        "Enabled": true
+      },
+      {
+        "Id": "tasks",
+        "Enabled": true
+      },
+      {
+        "Id": "clips",
+        "Enabled": true
+      },
+      {
+        "Id": "calendar",
+        "Enabled": true
+      },
+      {
+        "Id": "awake",
+        "Enabled": true
+      },
+      {
+        "Id": "links",
+        "Enabled": true
+      },
+      {
+        "Id": "voice",
+        "Enabled": false
+      }
+    ],
+    "CompactLayout": true,
+    "HoverPeek": true,
+    "TwoStageHover": true,
+    "AnimationMs": 400,
+    "ReduceMotion": false,
+    "LiveActivity": true,
+    "ClosedMediaIcon": "Artwork",
+    "ClosedMediaContent": "Waveform",
+    "Performance": "Maksimal",
+    "WheelAction": "pages",
+    "MiddleAction": "toggle",
+    "VolumeStep": 2,
+    "Clock24Hour": true,
+    "ClockSeconds": false,
+    "ShowDate": true,
+    "MonitorNetwork": true,
+    "MonitorStorage": true,
+    "MonitorProcesses": true,
+    "CategoryStyle": "Dots",
+    "LaunchStyle": "Icons",
+    "BoldMediaTitle": true,
+    "BoldHeadings": true,
+    "WaveformIdleMotion": true,
+    "VolumeFeedback": true,
+    "BrightnessFeedback": true,
+    "DropReveal": true,
+    "DetachablePreviews": false,
+    "CoverGestures": true,
+    "ControlFill": "#16171B",
+    "ControlBorder": "#303238",
+    "SelectionFill": "#34373E",
+    "PanelSwipe": true,
+    "Tools": [
+      {
+        "Id": "files",
+        "Enabled": true
+      },
+      {
+        "Id": "notes",
+        "Enabled": true
+      },
+      {
+        "Id": "tasks",
+        "Enabled": true
+      },
+      {
+        "Id": "clips",
+        "Enabled": true
+      },
+      {
+        "Id": "calendar",
+        "Enabled": true
+      },
+      {
+        "Id": "awake",
+        "Enabled": true
+      },
+      {
+        "Id": "links",
+        "Enabled": true
+      },
+      {
+        "Id": "weather",
+        "Enabled": true
+      }
+    ]
+  }
+}

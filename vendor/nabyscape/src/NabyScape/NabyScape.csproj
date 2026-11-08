@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\island.ico</ApplicationIcon>
+    <AssemblyName>NabyScape</AssemblyName>
+    <RootNamespace>NabyScape</RootNamespace>
+    <Version>2.26.0</Version>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <Title>NabyScape</Title>
+    <Product>NabyScape</Product>
+    <Company>NabyScape</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/BillyNabil/nabyscape</RepositoryUrl>
+    <!-- WPF owns DPI awareness; WinForms is used only for Screen and NotifyIcon. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <StartupObject>NabyScape.App</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.0" />
+    <PackageReference Include="System.Speech" Version="10.0.13" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Lucene.Net.Analysis.Kuromoji" Version="4.8.0-beta00018" />
+    <PackageReference Include="NTextCat" Version="0.3.65" />
+    <Resource Include="Assets\island.ico" />
+    <Resource Include="Assets\naby-chrome.png" />
+    <Resource Include="Assets\Fonts\Manrope-Medium.ttf" />
+    <Resource Include="Assets\Fonts\Manrope-SemiBold.ttf" />
+    <Resource Include="Assets\Fonts\Manrope-Bold.ttf" />
+    <EmbeddedResource Include="..\..\docs\presets\default-preferences.json" LogicalName="NabyScape.DefaultPreferences.json" />
+    <EmbeddedResource Include="..\..\tools\Uninstall-NabyScape.ps1" LogicalName="NabyScape.Uninstall.ps1" />
+    <EmbeddedResource Include="..\..\docs\presets\default-layout.json" LogicalName="NabyScape.DefaultLayout.json" />
+    <EmbeddedResource Include="..\..\tools\local_voice_server.py" LogicalName="NabyScape.LocalAsrServer" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="NabyScape.LICENSE" />
+    <EmbeddedResource Include="..\..\licenses\NAudio-LICENSE.txt" LogicalName="NabyScape.NAudio-LICENSE.txt" />
+    <EmbeddedResource Include="..\..\licenses\System.Speech-LICENSE.txt" LogicalName="NabyScape.System.Speech-LICENSE.txt" />
+    <EmbeddedResource Include="..\..\licenses\LUCIDE-LICENSE.txt" LogicalName="NabyScape.LUCIDE-LICENSE.txt" />
+    <EmbeddedResource Include="..\..\licenses\MANROPE-OFL.txt" LogicalName="NabyScape.MANROPE-OFL.txt" />
+    <EmbeddedResource Include="..\..\licenses\DOTNET-LICENSE.txt" LogicalName="NabyScape.DOTNET-LICENSE.txt" />
+    <EmbeddedResource Include="..\..\licenses\DOTNET-ThirdPartyNotices.txt" LogicalName="NabyScape.DOTNET-ThirdPartyNotices.txt" />
+    <EmbeddedResource Include="..\..\licenses\ROMAJI-ThirdPartyNotices.txt" LogicalName="NabyScape.ROMAJI-ThirdPartyNotices.txt" />
+    <EmbeddedResource Include="..\..\licenses\LYRICS-LANGUAGE-LICENSE.txt" LogicalName="NabyScape.LYRICS-LANGUAGE-LICENSE.txt" />
+    <EmbeddedResource Include="Assets\lyrics-languages.profile.xml.gz" LogicalName="NabyScape.LyricsLanguages" />
+  </ItemGroup>
+</Project>

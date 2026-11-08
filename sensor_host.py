@@ -16,9 +16,7 @@ import sys
 import time
 import traceback
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-LHM_DIR = os.path.join(APP_DIR, "vendor", "lhm")
-DATA_DIR = os.path.join(os.environ.get("APPDATA", "."), "sysmon-widget")
+from paths import APP_DIR, DATA_DIR, LHM_DIR, THIRD_PARTY, quote, sensors_cmd
 OUT_PATH = os.path.join(DATA_DIR, "sensors.json")
 LOG_PATH = os.path.join(DATA_DIR, "sensor_host.log")
 STOP_PATH = os.path.join(DATA_DIR, "sensors.stop")  # виджет создаёт файл, чтобы остановить датчики
@@ -53,11 +51,6 @@ def mutex_exists(name):
     return False
 
 
-def pythonw():
-    pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
-    return pyw if os.path.exists(pyw) else sys.executable
-
-
 def ps(script):
     return subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
                           capture_output=True, text=True, creationflags=NO_WINDOW, timeout=300)
@@ -66,10 +59,12 @@ def ps(script):
 # ---------- установка (нужны права администратора) ----------
 def install_task():
     """Задача Планировщика без триггеров: виджет запускает её сам, без окна UAC."""
-    exe = pythonw().replace("'", "''")
-    script = os.path.abspath(__file__).replace("'", "''")
+    cmd = sensors_cmd()
+    exe = cmd[0].replace("'", "''")
+    args = quote(cmd[1:]).replace("'", "''")
+    arg_part = f" -Argument '{args}'" if args else ""
     r = ps(f"""
-$a = New-ScheduledTaskAction -Execute '{exe}' -Argument '"{script}"' -WorkingDirectory '{APP_DIR}'
+$a = New-ScheduledTaskAction -Execute '{exe}'{arg_part} -WorkingDirectory '{APP_DIR}'
 $p = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 $s = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskPath '{TASK_PATH}' -TaskName '{TASK_NAME}' -Action $a -Principal $p -Settings $s -Force | Out-Null
@@ -91,6 +86,13 @@ def pawnio_installed():
 def install_pawnio():
     if pawnio_installed():
         return True
+    bundled = os.path.join(THIRD_PARTY, "pawnio", "PawnIO_setup.exe")
+    if os.path.exists(bundled):
+        r = subprocess.run([bundled, "-install", "-silent"], capture_output=True, creationflags=NO_WINDOW,
+                           timeout=600)
+        log(f"install_pawnio (bundled) rc={r.returncode}")
+        if pawnio_installed():
+            return True
     try:
         r = subprocess.run(["winget", "install", "--id", "namazso.PawnIO", "-e", "--silent",
                             "--accept-package-agreements", "--accept-source-agreements"],

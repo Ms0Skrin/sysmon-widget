@@ -1,14 +1,12 @@
 """Настройки (JSON в %APPDATA%) и автозапуск через реестр."""
 import json
 import os
-import sys
 import winreg
 
 APP_NAME = "SysMonWidget"
 CFG_DIR = os.path.join(os.environ.get("APPDATA", "."), "sysmon-widget")
 CFG_PATH = os.path.join(CFG_DIR, "config.json")
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-MAIN_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "widget.py")
 
 DEFAULTS = {
     "x": None, "y": None, "topmost": False, "alpha": 0.9, "locked": False,
@@ -50,11 +48,8 @@ def save_cfg(cfg):
 
 
 def autostart_command():
-    exe = sys.executable
-    pyw = os.path.join(os.path.dirname(exe), "pythonw.exe")
-    if os.path.exists(pyw):
-        exe = pyw
-    return f'"{exe}" "{MAIN_SCRIPT}"'
+    from paths import quote, widget_cmd
+    return quote(widget_cmd())
 
 
 def autostart_enabled():
