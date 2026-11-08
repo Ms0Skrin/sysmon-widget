@@ -98,6 +98,16 @@ def font(size, bold=False, theme=None):
     return (fam, size, "bold") if bold and fam != "Segoe UI Semibold" else (fam, size)
 
 
+def pct_to_alpha(p):
+    """Ползунок «Прозрачность» 0–100 % → альфа окна. Нелинейно: у непрозрачного края шаги мельче,
+    потому что глаз сильнее всего замечает разницу именно там."""
+    return round(1 - 0.9 * (max(0, min(100, p)) / 100) ** 2, 3)
+
+
+def alpha_to_pct(a):
+    return int(round(100 * (max(0.0, 1 - a) / 0.9) ** 0.5))
+
+
 def blend(hex_color, bg_hex, a):
     c = [int(hex_color[i:i + 2], 16) for i in (1, 3, 5)]
     b = [int(bg_hex[i:i + 2], 16) for i in (1, 3, 5)]

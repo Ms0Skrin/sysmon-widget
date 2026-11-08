@@ -431,13 +431,13 @@ class Widget:
         self.save()
 
     def set_alpha(self, a):
-        self.cfg["alpha"] = round(a, 2)
+        self.cfg["alpha"] = round(a, 3)
         self.v_alpha.set(self.cfg["alpha"])
         self.root.attributes("-alpha", self.cfg["alpha"])
         self.save()
 
-    def set_launcher_alpha(self, pct):
-        self.cfg["launcher_alpha"] = round(pct / 100, 2)
+    def set_launcher_alpha(self, a):
+        self.cfg["launcher_alpha"] = round(a, 3)
         if self.launcher.visible():
             self.launcher.top.attributes("-alpha", self.cfg["launcher_alpha"])
         self.save()

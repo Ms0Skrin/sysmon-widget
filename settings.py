@@ -16,7 +16,8 @@ from config import autostart_enabled
 from hotkey import MODIFIER_VKS, current_mods, hotkey_label
 from icons import file_icon
 from sensors import TYPE_NAMES, fmt_value
-from theme import GRAPH_STYLES, THEMES, T, dark_titlebar, draw_series, font, is_dark
+from theme import (GRAPH_STYLES, THEMES, T, alpha_to_pct, dark_titlebar, draw_series, font, is_dark,
+                   pct_to_alpha)
 
 TABS = [("general", "Основное"), ("look", "Оформление"), ("sensors", "Датчики"),
         ("apps", "Приложения"), ("naby", "NabyScape")]
@@ -178,8 +179,8 @@ class SettingsWindow:
         self.hk_msg = tk.Label(p, text="", bg=T["bg"], fg=T["muted"], font=font(8), anchor="w")
         self.hk_msg.pack(fill="x", pady=(int(3 * s), 0))
         self.refresh_hotkey()
-        self.slider(p, "Непрозрачность панели", int(app.cfg["launcher_alpha"] * 100), 30, 100,
-                    app.set_launcher_alpha)
+        self.slider(p, "Прозрачность панели", alpha_to_pct(app.cfg["launcher_alpha"]), 0, 100,
+                    lambda v: app.set_launcher_alpha(pct_to_alpha(v)))
         self.slider(p, "Размер значков", int(app.cfg.get("launcher_icon", 40)), 24, 96,
                     app.launcher.set_icon_size, fmt=lambda v: f"{v} px")
         self.slider(p, "Колонок в панели", int(app.cfg.get("launcher_cols", 0)), 0, 12,
@@ -191,8 +192,8 @@ class SettingsWindow:
                    lambda: app.set_desktop_icons_hidden(app.v_icons_hidden.get()))
 
         self.section(p, "Виджет")
-        self.slider(p, "Непрозрачность виджета", int(app.cfg["alpha"] * 100), 30, 100,
-                    lambda v: app.set_alpha(v / 100))
+        self.slider(p, "Прозрачность виджета", alpha_to_pct(app.cfg["alpha"]), 0, 100,
+                    lambda v: app.set_alpha(pct_to_alpha(v)))
         cols = tk.Frame(p, bg=T["bg"])
         cols.pack(fill="x", pady=int(2 * s))
         tk.Label(cols, text="Колонок плиток:", bg=T["bg"], fg=T["fg"], font=font(10)).pack(side="left")
