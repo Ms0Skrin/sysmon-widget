@@ -1,5 +1,5 @@
 psutil>=5.9
-pystray>=0.19
+pyinstaller>=6.0
 Pillow>=10.0
 pywin32>=306
 pythonnet>=3.0

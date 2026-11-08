@@ -1,7 +1,7 @@
 """Полупрозрачный виджет-монитор системы для рабочего стола Windows.
 
 ЛКМ + перетаскивание — двигать (если не закреплён), ПКМ — меню.
-Кнопка ⊞ или горячая клавиша (по умолчанию Ctrl+Alt+Space) — панель приложений.
+Кнопка с точками или горячая клавиша (по умолчанию Ctrl+Alt+Space) — панель приложений.
 Иконка в трее (ПКМ): показать/скрыть, приложения, настройки, обновления, выход.
 """
 import ctypes
@@ -26,6 +26,8 @@ from hotkey import HotkeyThread, hotkey_label
 from launcher import Launcher
 from sensors import Sensors, fmt_rate, fmt_value, sensor_max
 from settings import SettingsWindow
+from tray import TrayIcon
+from traymenu import TrayMenu
 from theme import T, draw_series, font, round_corners, series_colors, set_theme
 
 HISTORY = 60          # точек на графике
@@ -203,8 +205,15 @@ class Widget:
 
         head = tk.Frame(body, bg=T["bg"])
         head.pack(fill="x", pady=(0, int(6 * s)))
-        self.apps_btn = tk.Label(head, text="⊞", bg=T["panel"], fg=T["accent"], cursor="hand2",
-                                 font=("Segoe UI Symbol", 11), padx=int(7 * s))
+        # кнопка «все приложения»: квадрат из точек 3×3, как в старом Android / GNOME
+        size = int(26 * s)
+        self.apps_btn = tk.Canvas(head, width=size, height=size, bg=T["panel"], highlightthickness=0,
+                                  bd=0, cursor="hand2")
+        step, r = size / 4, max(1.5, 2.1 * s)
+        for i in range(3):
+            for j in range(3):
+                cx, cy = step * (i + 1), step * (j + 1)
+                self.apps_btn.create_oval(cx - r, cy - r, cx + r, cy + r, fill=T["accent"], outline="")
         self.apps_btn.pack(side="left", padx=(0, int(8 * s)))
         self.apps_btn.bind("<Enter>", lambda _e: self.apps_btn.config(bg=T["hover"]))
         self.apps_btn.bind("<Leave>", lambda _e: self.apps_btn.config(bg=T["panel"]))
@@ -496,8 +505,6 @@ class Widget:
         self.cfg["naby_enabled"] = on
         self.save()
         self.build_menu()
-        if self.tray:
-            self.tray.update_menu()
         if on:
             self.naby_ensure(start=True)
         else:
@@ -560,34 +567,28 @@ class Widget:
 
     # ---------- трей ----------
     def start_tray(self):
-        try:
-            import pystray
-            from PIL import Image, ImageDraw
-        except ImportError:
-            return
-        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
-        d.rounded_rectangle((2, 2, 62, 62), 12, fill=(22, 24, 29, 255))
-        for i, (hgt, col) in enumerate([(22, "#4fa3ff"), (38, "#b07cff"), (30, "#ffb347"), (46, "#3ddc97")]):
-            x = 10 + i * 12
-            d.rectangle((x, 54 - hgt, x + 8, 54), fill=col)
-        cmd = lambda name: (lambda: self.cmds.put(name))
-        menu = pystray.Menu(
-            pystray.MenuItem("Показать / скрыть виджет", cmd("toggle"), default=True),
-            pystray.MenuItem("Приложения", cmd("launcher")),
-            pystray.MenuItem("Настройки…", cmd("settings")),
-            pystray.MenuItem("NabyScape: настройки", cmd("naby_settings"),
-                             visible=lambda _i: self.cfg["naby_enabled"]),
-            pystray.MenuItem("NabyScape: перезапустить", cmd("naby_restart"),
-                             visible=lambda _i: self.cfg["naby_enabled"]),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Проверить обновления", cmd("update")),
-            pystray.MenuItem(f"Версия: {updater.version()}", None, enabled=False),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Выход", cmd("quit")),
-        )
-        self.tray = pystray.Icon(APP_NAME, img, "Монитор системы", menu)
-        self.tray.run_detached()
+        self.tray_menu = TrayMenu(self.root, self.s)
+        self._version = updater.version()
+        self.tray = TrayIcon("SysMon Widget", lambda: self.cmds.put("toggle"),
+                             lambda x, y: self.cmds.put(("tray_menu", x, y)))
+        self.tray.start()
+
+    def show_tray_menu(self, x, y):
+        go = lambda name: (lambda: self.cmds.put(name))
+        hidden = self.root.state() == "withdrawn"
+        items = [
+            ("show", "Показать виджет" if hidden else "Скрыть виджет", go("toggle")),
+            ("apps", "Приложения", go("launcher")),
+            ("settings", "Настройки", go("settings")),
+            ("look", "Оформление", lambda: self.settings.show("look")),
+        ]
+        if self.cfg["naby_enabled"]:
+            items += [("-",), ("music", "NabyScape: настройки", go("naby_settings")),
+                      ("restart", "NabyScape: перезапустить", go("naby_restart"))]
+        items += [("-",), ("update", "Проверить обновления", go("update")),
+                  ("info", f"SysMon Widget {self._version}"), ("-",),
+                  ("exit", "Выход", go("quit"))]
+        self.tray_menu.show(x, y, items)
 
     def poll_cmds(self):
         try:
@@ -599,6 +600,8 @@ class Widget:
                     self.launcher.toggle()
                 elif cmd == "settings":
                     self.settings.show()
+                elif isinstance(cmd, tuple) and cmd[0] == "tray_menu":
+                    self.show_tray_menu(cmd[1], cmd[2])
                 elif cmd == "update":
                     self.check_updates()
                 elif cmd == "naby_settings":

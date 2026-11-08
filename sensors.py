@@ -51,20 +51,66 @@ def fmt_value(stype, v):
     return f"{v:.0f} {unit}".strip()
 
 
-def pick_cpu_temp(sensors):
-    """Главная температура ЦП: Package / Tctl / Core Max."""
+def _best(sensors, pred, prio):
+    """Значение датчика с наивысшим приоритетом по подстрокам имени (prio — по убыванию)."""
     best = None
-    prio = ("cpu package", "core (tctl/tdie)", "tctl", "core max", "cpu")
     for s in sensors:
-        if s["type"] != "Temperature" or s["hwtype"] != "Cpu":
+        if not pred(s):
             continue
         name = s["name"].lower()
-        for p_i, p in enumerate(prio):
-            if p in name and "distance" not in name:
-                if best is None or p_i < best[0]:
-                    best = (p_i, s["value"])
+        for i, p in enumerate(prio):
+            if p in name:
+                if best is None or i < best[0]:
+                    best = (i, s["value"])
                 break
     return best[1] if best else None
+
+
+def pick_cpu_temp(sensors):
+    """Главная температура ЦП для Intel и AMD."""
+    return _best(
+        sensors,
+        lambda s: s["hwtype"] == "Cpu" and s["type"] == "Temperature" and "distance" not in s["name"].lower(),
+        # Intel: CPU Package / Core Max; AMD Zen: Core (Tctl/Tdie), Tctl, Tdie, CCD; старые AMD: Package / Core
+        ("cpu package", "core (tctl/tdie)", "tctl", "tdie", "package", "core max", "ccd", "core", "cpu"),
+    )
+
+
+GPU_ORDER = ("GpuNvidia", "GpuAmd", "GpuIntel")  # дискретная важнее встроенной
+
+
+def pick_gpu(sensors):
+    """Нагрузка/температура/память/мощность главной видеокарты — NVIDIA, AMD или Intel."""
+    gpus = {}
+    for s in sensors:
+        if s["hwtype"] in GPU_ORDER:
+            gpus.setdefault((s["hwtype"], s["hw"]), []).append(s)
+    if not gpus:
+        return {}
+
+    def rank(key):
+        items = gpus[key]
+        total = next((x["value"] for x in items if x["name"] == "GPU Memory Total"), 0)
+        return (GPU_ORDER.index(key[0]), -total)
+
+    items = gpus[sorted(gpus, key=rank)[0]]
+    out = {}
+    v = _best(items, lambda s: s["type"] == "Load", ("gpu core", "d3d 3d", "gpu"))
+    if v is not None:
+        out["gpu"] = v
+    v = _best(items, lambda s: s["type"] == "Temperature", ("gpu core", "gpu hot spot", "gpu"))
+    if v is not None:
+        out["gpu_temp"] = v
+    used = _best(items, lambda s: s["type"] == "SmallData",
+                 ("gpu memory used", "d3d dedicated memory used"))
+    total = _best(items, lambda s: s["type"] == "SmallData", ("gpu memory total",))
+    if used is not None and total:
+        out["vram_used"], out["vram_total"] = used, total
+    v = _best(items, lambda s: s["type"] == "Power", ("gpu package", "gpu power", "gpu core", "gpu"))
+    if v is not None:
+        out["gpu_pwr"] = v
+    out["gpu_name"] = items[0]["hw"]
+    return out
 
 
 class Sensors(threading.Thread):
@@ -86,12 +132,17 @@ class Sensors(threading.Thread):
 
     def run(self):
         while True:
-            d = self.read_nvidia()
             lhm, ok = self.read_lhm()
-            if ok:
+            d = {}
+            if ok:  # LibreHardwareMonitor: Intel / AMD / NVIDIA одинаково
                 t = pick_cpu_temp(lhm)
                 if t is not None:
                     d["cpu_temp"] = t
+                d.update(pick_gpu(lhm))
+            # запасной путь без прав администратора: nvidia-smi (только NVIDIA)
+            if not all(k in d for k in ("gpu", "gpu_temp", "vram_used", "gpu_pwr")):
+                for k, v in self.read_nvidia().items():
+                    d.setdefault(k, v)
             with self.lock:
                 self.data, self.lhm, self.lhm_ok = d, lhm, ok
             time.sleep(SENSOR_INTERVAL)

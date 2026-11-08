@@ -157,7 +157,12 @@ def write(sensors):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"ts": time.time(), "pid": os.getpid(), "pawnio": PAWNIO, "sensors": sensors},
                   f, ensure_ascii=False)
-    os.replace(tmp, OUT_PATH)
+    for attempt in range(10):  # виджет мог как раз читать файл — Windows не даст его заменить
+        try:
+            os.replace(tmp, OUT_PATH)
+            return
+        except PermissionError:
+            time.sleep(0.05)
 
 
 PAWNIO = False

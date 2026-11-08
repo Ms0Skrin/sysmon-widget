@@ -10,7 +10,7 @@ from PIL import ImageTk
 
 from appscan import AppPicker
 from icons import file_icon
-from theme import T, font, round_corners
+from theme import T, font, round_corners, round_region
 
 user32 = ctypes.windll.user32
 START_MENU = os.path.join(os.environ.get("ProgramData", "C:\\ProgramData"),
@@ -57,6 +57,7 @@ class Launcher:
         self._origin = None
         self._closing = False
         self.query = ""
+        self.radius = int(14 * scale)
 
     # ---------- показ / скрытие ----------
     def visible(self):
@@ -209,7 +210,7 @@ class Launcher:
     def _target(self):
         self.body.update_idletasks()
         w, h = self.body.winfo_reqwidth(), self.body.winfo_reqheight()
-        l, t, r, b = work_area(*self._origin)
+        l, t, r, b = work_area(0, 0)  # всегда центр основного экрана
         return (l + r) // 2 - w // 2, (t + b) // 2 - h // 2, w, h
 
     def _layout(self, animate):
@@ -219,6 +220,7 @@ class Launcher:
             self._animate(opening=True)
         else:
             self.top.geometry(f"{w}x{h}+{x}+{y}")
+            round_region(self.top, self.radius, w, h)
 
     def _animate(self, opening):
         top = self.top
@@ -244,6 +246,7 @@ class Launcher:
             w, h = w0 + (w1 - w0) * k, h0 + (h1 - h0) * k
             a = alpha * (k if opening else 1 - k)
             top.geometry(f"{int(w)}x{int(h)}+{int(x)}+{int(y)}")
+            round_region(top, self.radius * min(1.0, w / max(w1, w0)), w, h)
             top.attributes("-alpha", max(0.0, min(1.0, a)))
             if t < 1:
                 self._anim = self.root.after(FRAME_MS, frame)
@@ -261,6 +264,7 @@ class Launcher:
         x, y, w, h = self._target()
         self.body.place_configure(width=w, height=h)
         self.top.geometry(f"{w}x{h}+{x}+{y}")
+        round_region(self.top, self.radius, w, h)
         self.top.attributes("-alpha", self.cfg["launcher_alpha"])
 
     def _focus(self):

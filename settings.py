@@ -262,7 +262,7 @@ class SettingsWindow:
         style = self.app.cfg["graph_style"] or th["style"]
         c = tk.Canvas(parent, width=w, height=h, bg=th["bg"], highlightthickness=0)
         pad = int(6 * s)
-        c.create_text(pad, pad + 5 * s, text="⊞  PC", anchor="w", fill=th["fg"], font=font(8, True, th))
+        c.create_text(pad, pad + 5 * s, text="⠿  PC", anchor="w", fill=th["fg"], font=font(8, True, th))
         c.create_text(w - pad, pad + 5 * s, text="Uptime 3h", anchor="e", fill=th["muted"],
                       font=font(6, False, th))
         rnd = random.Random(hash(th["title"]))
@@ -561,7 +561,7 @@ class SettingsWindow:
         self.app.apply_hotkey()
         self.app.save()
         self.refresh_hotkey()
-        self.hk_msg.config(text="Горячая клавиша отключена — панель открывается кнопкой ⊞.", fg=T["muted"])
+        self.hk_msg.config(text="Горячая клавиша отключена — панель открывается кнопкой с точками.", fg=T["muted"])
 
     def on_key(self, e):
         if not self.capturing:
