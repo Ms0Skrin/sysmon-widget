@@ -1,0 +1,5 @@
+These DLLs are from LibreHardwareMonitor 0.9.6
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+LibreHardwareMonitorLib is licensed under the Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/).
+Bundled dependencies (HidSharp, BlackSharp.Core, DiskInfoToolkit, RAMSPDToolkit, System.*, Microsoft.Bcl.*)
+are distributed under their respective licenses as shipped with LibreHardwareMonitor.

@@ -15,7 +15,15 @@ DEFAULTS = {
     "columns": 2, "tiles": ["cpu", "cpu_temp", "gpu", "gpu_temp", "ram", "net"],
     # горячая клавиша меню приложений: MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     "hotkey": {"mods": 3, "vk": 0x20},  # Ctrl+Alt+Space
-    "apps": [],  # [{"name": str, "path": str}]
+    "apps": [],  # [{"name": str, "path": str}]; path может быть shell:AppsFolder\<AppID>
+    "launcher_alpha": 0.92,
+    "theme": "graphite",
+    "graph_style": "",       # "" — как в теме
+    "lhm_enabled": True,     # встроенные датчики LibreHardwareMonitor
+    "setup_asked": False,    # спрашивали ли про права при первом запуске
+    "sensor_meta": {},       # "lhm:<id>" -> {"title", "type"} для плиток датчиков
+    "naby_enabled": False,   # интеграция NabyScape
+    "taskbar_mode": "",      # "" как в Windows | clear | blur | tint
 }
 
 
@@ -26,7 +34,7 @@ def load_cfg(valid_tiles):
             cfg.update(json.load(f))
     except Exception:
         pass
-    cfg["tiles"] = [t for t in cfg["tiles"] if t in valid_tiles]
+    cfg["tiles"] = [t for t in cfg["tiles"] if t in valid_tiles or t.startswith("lhm:")]
     return cfg
 
 
