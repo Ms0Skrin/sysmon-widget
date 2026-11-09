@@ -6,6 +6,7 @@
 Иконка в трее (ПКМ): показать/скрыть, приложения, настройки, обновления, выход.
 """
 import ctypes
+import os
 import queue
 import sys
 import threading
@@ -98,6 +99,9 @@ class Widget:
         self._naby_busy = False
 
         self.root = root = tk.Tk()
+        # Tcl уже загружен; не передаём пути своей сборки запускаемым программам
+        for var in ("TCL_LIBRARY", "TK_LIBRARY"):
+            os.environ.pop(var, None)
         root.title(APP_NAME)
         root.withdraw()  # корневое окно скрыто; панели — отдельные окна
         self.s = root.winfo_fpixels("1i") / 96

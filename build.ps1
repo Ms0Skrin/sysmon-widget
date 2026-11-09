@@ -57,9 +57,12 @@ python (Join-Path $root "packaging\installer_art.py") (Join-Path $build "art")
 if ($LASTEXITCODE) { throw "installer art failed" }
 
 Write-Host "PyInstaller"
+# Переменные Tcl/Tk, унаследованные от запущенного собранного виджета, ломают поиск tkinter
+Remove-Item Env:TCL_LIBRARY, Env:TK_LIBRARY -ErrorAction SilentlyContinue
 python -m PyInstaller (Join-Path $root "packaging\sysmon.spec") --noconfirm --clean `
   --distpath (Join-Path $root "dist") --workpath (Join-Path $build "pyi")
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
+if (-not (Test-Path (Join-Path $root "dist\SysMonWidget\_internal\_tcl_data\init.tcl"))) { throw "tkinter не попал в сборку" }
 $dist = Join-Path $root "dist\SysMonWidget"
 Set-Content -Path (Join-Path $dist "version.txt") -Value $Version -Encoding utf8
 Copy-Item (Join-Path $root "vendor\lhm") (Join-Path $dist "lhm") -Recurse -Force
