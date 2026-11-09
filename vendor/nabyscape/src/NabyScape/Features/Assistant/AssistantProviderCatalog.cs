@@ -7,7 +7,7 @@ internal static class AssistantProviderCatalog
 {
     internal static IReadOnlyList<string> Presets { get; } = Array.AsReadOnly(new[]
     {
-        "OpenAI", "Anthropic", "Google Gemini", "Ollama", "LM Studio", "xAI", "Hermes Agent",
+        "OpenAI", "Anthropic", "Google Gemini", "OpenRouter", "Ollama", "LM Studio", "xAI", "Hermes Agent",
         "Custom Chat Completions", "Custom Responses", "Custom Anthropic", "Custom Gemini"
     });
 
@@ -19,6 +19,7 @@ internal static class AssistantProviderCatalog
             "OpenAI" => ("Responses", "https://api.openai.com/v1/"),
             "Anthropic" => ("Anthropic", "https://api.anthropic.com/v1/"),
             "Google Gemini" => ("Gemini", "https://generativelanguage.googleapis.com/v1beta/"),
+            "OpenRouter" => ("ChatCompletions", AssistantOpenRouterLogin.BaseUrl),
             "Ollama" => ("ChatCompletions", "http://localhost:11434/v1/"),
             "LM Studio" => ("ChatCompletions", "http://localhost:1234/v1/"),
             "xAI" => ("ChatCompletions", "https://api.x.ai/v1/"),

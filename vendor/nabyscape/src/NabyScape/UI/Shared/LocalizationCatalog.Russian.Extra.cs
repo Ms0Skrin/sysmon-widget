@@ -6,6 +6,22 @@ internal static partial class LocalizationCatalog
     // подключение провайдеров, тексты песен, звук, календарь, ярлыки, данные и восстановление.
     private static (string English, string Russian)[] RussianExtra() => new[]
     {
+        // Быстрый старт ассистента
+        ("Quick start · no API setup needed", "Быстрый старт · без настройки API"),
+        ("Sign in with OpenRouter", "Войти через OpenRouter"),
+        ("Cancel sign-in", "Отменить вход"),
+        ("Get a free Gemini key", "Бесплатный ключ Gemini"),
+        ("Local model (Ollama)", "Локальная модель (Ollama)"),
+        ("OpenRouter: sign in in your browser and the key is saved automatically. Claude, GPT, Gemini and free models are available; usage is billed to your OpenRouter balance. Gemini: Google AI Studio has a free tier. Ollama runs models on this PC for free.", "OpenRouter: войдите в браузере, и ключ сохранится сам. Доступны Claude, GPT, Gemini и бесплатные модели; оплата — с вашего баланса OpenRouter. Gemini: в Google AI Studio есть бесплатный тариф. Ollama запускает модели прямо на этом ПК бесплатно."),
+        ("Waiting for OpenRouter sign-in in your browser…", "Ждём входа в OpenRouter в браузере…"),
+        ("Signed in with OpenRouter · key saved in Windows. Model: automatic choice; you can pick another in Edit connection.", "Вход через OpenRouter выполнен · ключ сохранён в Windows. Модель выбирается автоматически; другую можно указать в «Изменить подключение»."),
+        ("OpenRouter sign-in cancelled.", "Вход в OpenRouter отменён."),
+        ("Sign-in failed · ", "Не удалось войти · "),
+        ("Port 3000 is busy. Close the app that uses it and try again.", "Порт 3000 занят. Закройте программу, которая его использует, и попробуйте снова."),
+        ("Sign-in timed out or was cancelled.", "Время входа истекло или вход отменён."),
+        ("OpenRouter did not issue a key.", "OpenRouter не выдал ключ."),
+        ("In Google AI Studio choose Create API key, copy it, paste it into the API key field below and choose Save provider.", "В Google AI Studio нажмите Create API key, скопируйте ключ, вставьте его в поле «API-ключ» ниже и нажмите «Сохранить провайдера»."),
+        ("Install Ollama, run «ollama pull llama3.2» in a terminal, then choose a model below and Save provider. No key is needed.", "Установите Ollama, выполните в терминале «ollama pull llama3.2», затем выберите модель ниже и нажмите «Сохранить провайдера». Ключ не нужен."),
         // Модели и движки речи
         ("Whisper GGML file", "Файл Whisper GGML"),
         ("Piper ONNX file", "Файл Piper ONNX"),

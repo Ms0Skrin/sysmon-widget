@@ -43,7 +43,7 @@ internal static class AssistantProviderTests
     {
         test("Assistant provider presets retain explicit capabilities and a Hermes agent alias", () =>
         {
-            Assert(AssistantProviderCatalog.Presets.Count == 11);
+            Assert(AssistantProviderCatalog.Presets.Count == 12);
             foreach (string name in AssistantProviderCatalog.Presets)
             {
                 var provider = AssistantProviderCatalog.Create(name);
