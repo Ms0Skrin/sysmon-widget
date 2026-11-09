@@ -139,10 +139,23 @@ def latest_release():
             "size": zip_a["size"], "sums_url": sums["browser_download_url"] if sums else None}
 
 
+def _ver(tag):
+    """«v2.26.0-ru» → (2, 26, 0): русская сборка сравнивается по версии исходников."""
+    out = []
+    for part in (tag or "0").lstrip("v").split("-")[0].split("."):
+        out.append(int(part) if part.isdigit() else 0)
+    return tuple(out)
+
+
+def is_russian_build():
+    return (installed_version() or "").endswith("-ru")
+
+
 def update_available():
-    """→ (есть ли новее, тег последней версии)."""
+    """→ (есть ли новее, тег последней версии). Официальный релиз той же версии не считается новее
+    нашей русской сборки, а более новый — считается (но он будет на английском)."""
     rel = latest_release()
-    return rel["tag"] != installed_version(), rel["tag"]
+    return _ver(rel["tag"]) > _ver(installed_version()), rel["tag"]
 
 
 def install(progress=None):

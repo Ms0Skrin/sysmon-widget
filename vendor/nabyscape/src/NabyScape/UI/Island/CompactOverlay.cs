@@ -130,10 +130,10 @@ public sealed partial class OverlayWindow
         peekArt.Visibility=media && app.Media.Artwork!=null?Visibility.Visible:Visibility.Collapsed;SwapArtwork(peekArt,media?app.Media.Artwork:null);
         peekFallback.Visibility=peekArt.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;
         var now=DateTimeOffset.Now;
-        string caption=media?app.Media.Title:WidgetOn("focus") && app.Session.Focus.Remaining(now)>0?"Focus · "+app.Session.Focus.Display(now):WidgetOn("timer") && app.Session.Timer.Remaining(now)>0?"Timer · "+app.Session.Timer.Display(now):now.ToString("HH:mm");
-        if(activityDetail=="Ending soon")caption=(previewKind=="timer"?"Timer · "+app.Session.Timer.Display(now):"Focus · "+app.Session.Focus.Display(now));
+        string caption=media?Localization.Message(app.Media.Title):WidgetOn("focus") && app.Session.Focus.Remaining(now)>0?Localization.Text("Focus")+" · "+app.Session.Focus.Display(now):WidgetOn("timer") && app.Session.Timer.Remaining(now)>0?Localization.Text("Timer")+" · "+app.Session.Timer.Display(now):now.ToString("HH:mm");
+        if(activityDetail=="Ending soon")caption=(previewKind=="timer"?Localization.Text("Timer")+" · "+app.Session.Timer.Display(now):"Focus · "+app.Session.Focus.Display(now));
         if(media)SwapText(peekTitle,caption);else Motion.Text(peekTitle,caption);
-        string detail=media?app.Media.Artist:ActiveCountdown()!=null?"Session running · click for controls":now.ToString("dddd, d MMMM",new System.Globalization.CultureInfo("en-US"));
+        string detail=media?Localization.Message(app.Media.Artist):ActiveCountdown()!=null?Localization.Text("Session running · click for controls"):now.ToString("dddd, d MMMM",new System.Globalization.CultureInfo("en-US"));
         if(media)SwapText(peekSubtitle,detail);else Motion.Text(peekSubtitle,detail);
         if(peekPlay!=null){peekPlay.Visibility=media?Visibility.Visible:Visibility.Collapsed;peekPlay.IsEnabled=app.Media.CanToggle;Motion.Icon(peekPlay,app.Media.Playing?"pause":"play",18,Brushes.Black);}
         var position=media?app.Media.Timeline():(ActiveCountdown() is Countdown c?(c.DurationSeconds-c.Remaining(now),c.DurationSeconds):(0d,0d));

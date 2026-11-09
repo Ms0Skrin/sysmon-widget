@@ -47,7 +47,7 @@ public sealed partial class OverlayWindow
     {
         get
         {
-            if(app.Settings.ClosedMediaContent!="Lyrics")return app.Media.Title;
+            if(app.Settings.ClosedMediaContent!="Lyrics")return Localization.Message(app.Media.Title);
             var lines=app.Lyrics.Result.Lines;int index=ClosedLyricIndex;
             if(index<0)return "";
             double end=index+1<lines.Length?lines[index+1].At:app.Media.Timeline().duration;

@@ -11,7 +11,11 @@ AppPublisherURL=https://github.com/Ms0Skrin/sysmon-widget
 DefaultDirName={autopf}\SysMon Widget
 DefaultGroupName=SysMon Widget
 DisableProgramGroupPage=yes
+#ifdef PREVIEW
+PrivilegesRequired=lowest
+#else
 PrivilegesRequired=admin
+#endif
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist
@@ -21,13 +25,26 @@ UninstallDisplayIcon={app}\SysMonWidget.exe
 UninstallDisplayName=SysMon Widget
 Compression=lzma2/ultra64
 SolidCompression=yes
-WizardStyle=modern
+; оформление в стиле приложения: светлая/тёмная тема по системе, фирменные картинки и цвета
+WizardStyle=modern dynamic hidebevels
+WizardBackColor=#f3f4f7
+WizardBackColorDynamicDark=#16181d
+WizardImageFile=..\build\art\wizard_dark_100.bmp,..\build\art\wizard_dark_125.bmp,..\build\art\wizard_dark_150.bmp,..\build\art\wizard_dark_200.bmp
+WizardSmallImageFile=..\build\art\small_dark_100.png,..\build\art\small_dark_125.png,..\build\art\small_dark_150.png,..\build\art\small_dark_200.png
+WizardImageBackColor=#16181d
+WizardImageBackColorDynamicDark=#16181d
 CloseApplications=force
 RestartApplications=no
 UsedUserAreasWarning=no
 
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
+
+[Messages]
+ru.WelcomeLabel1=Добро пожаловать в SysMon Widget
+ru.WelcomeLabel2=Будут установлены панели-виджеты для рабочего стола: мониторинг процессора, видеокарты и памяти, датчики температуры и вентиляторов, панель приложений, «остров» NabyScape на русском и прозрачная панель задач.%n%nВсё нужное уже внутри — ничего докачивать не придётся. Права администратора понадобятся один раз: для драйвера датчиков и запуска датчиков без запросов.
+ru.FinishedHeadingLabel=SysMon Widget установлен
+ru.FinishedLabel=Панели появятся на рабочем столе. Правый клик по панели — её меню, значок в трее — настройки и обновления.
 
 [Tasks]
 Name: "autostart"; Description: "Запускать SysMon Widget вместе с Windows"

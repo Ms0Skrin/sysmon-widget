@@ -36,6 +36,26 @@ foreach ($p in $pinned) {
   Set-Content -Path (Join-Path $dest "version.txt") -Value $p.Ver -Encoding utf8
 }
 
+# NabyScape: собираем русскую версию из vendor/nabyscape (нужен .NET 10 SDK);
+# без SDK остаётся официальная сборка из архива выше
+$nabySrc = Join-Path $root "vendor\nabyscape"
+if ((Get-Command dotnet -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $nabySrc "build.ps1"))) {
+  Write-Host "NabyScape (ru) from source"
+  $nabyOut = Join-Path $build "nabyscape-ru"
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $nabySrc "build.ps1") -OutputDirectory $nabyOut -SkipTests
+  if ($LASTEXITCODE) { throw "NabyScape build failed" }
+  $dest = Join-Path $tp "nabyscape"
+  Remove-Item -Recurse -Force $dest -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force $dest | Out-Null
+  Get-ChildItem $nabyOut -File | Where-Object { $_.Name -notlike "*Setup*.exe" -and $_.Name -notlike "unit-report*" } |
+    Copy-Item -Destination $dest
+  Set-Content -Path (Join-Path $dest "version.txt") -Value "v2.26.0-ru" -Encoding utf8
+}
+
+Write-Host "Installer art"
+python (Join-Path $root "packaging\installer_art.py") (Join-Path $build "art")
+if ($LASTEXITCODE) { throw "installer art failed" }
+
 Write-Host "PyInstaller"
 python -m PyInstaller (Join-Path $root "packaging\sysmon.spec") --noconfirm --clean `
   --distpath (Join-Path $root "dist") --workpath (Join-Path $build "pyi")

@@ -455,7 +455,10 @@ class Widget:
         def fn():
             self.naby_msg = "Проверяю обновления…"
             newer, tag = nabyscape.update_available()
-            if newer:
+            if newer and nabyscape.is_russian_build():
+                self.naby_msg = (f"Вышел NabyScape {tag} (на английском). Русская версия обновится "
+                                 f"вместе со следующим обновлением SysMon Widget.")
+            elif newer:
                 nabyscape.install(self._naby_progress)
             else:
                 self.naby_msg = f"Установлена последняя версия ({tag})."

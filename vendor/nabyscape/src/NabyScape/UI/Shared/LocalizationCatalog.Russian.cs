@@ -45,7 +45,7 @@ internal static partial class LocalizationCatalog
     private static Dictionary<string, string> BuildRussian()
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var part in new[] { RussianCore(), RussianSettings(), RussianSettingsHelp(), RussianIsland(), RussianAssistant(), RussianFormats() })
+        foreach (var part in new[] { RussianCore(), RussianSettings(), RussianSettingsHelp(), RussianIsland(), RussianAssistant(), RussianFormats(), RussianExtra() })
             foreach (var (english, russian) in part)
                 map.TryAdd(english, russian);
         return map;

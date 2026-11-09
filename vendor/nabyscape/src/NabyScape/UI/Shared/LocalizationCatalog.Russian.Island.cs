@@ -582,7 +582,7 @@ internal static partial class LocalizationCatalog
         ("Drag to detach this preview", "Потяните, чтобы открепить превью"),
         ("Drag preview out", "Вытащить превью"),
         ("Detach preview", "Открепить превью"),
-        ("Detach", "Открепить"),
+        ("Detach", "В окно"),
         ("Next preview", "Следующее превью"),
         ("Previous preview", "Предыдущее превью"),
         ("Next · drag left", "Далее · потяните влево"),
