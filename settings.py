@@ -183,8 +183,19 @@ class SettingsWindow:
                     lambda v: app.set_launcher_alpha(pct_to_alpha(v)))
         self.slider(p, "Размер значков", int(app.cfg.get("launcher_icon", 40)), 24, 96,
                     app.launcher.set_icon_size, fmt=lambda v: f"{v} px")
-        self.slider(p, "Колонок в панели", int(app.cfg.get("launcher_cols", 0)), 0, 12,
+        self.slider(p, "Колонок (авторазмер)", int(app.cfg.get("launcher_cols", 0)), 0, 12,
                     app.launcher.set_cols, fmt=lambda v: "авто" if v == 0 else str(v))
+        lrow = tk.Frame(p, bg=T["bg"])
+        lrow.pack(fill="x", pady=int(2 * s))
+        tk.Label(lrow, text="Вид панели:", bg=T["bg"], fg=T["fg"], font=font(10)).pack(side="left")
+        self.v_layout = tk.StringVar(value=app.cfg.get("launcher_layout", "grid"))
+        for val, title in (("grid", "Сетка"), ("honey", "Соты (как Apple Watch)")):
+            tk.Radiobutton(lrow, text=title, value=val, variable=self.v_layout,
+                           command=lambda: app.launcher.set_layout(self.v_layout.get()),
+                           bg=T["bg"], fg=T["fg"], selectcolor=T["panel"], activebackground=T["bg"],
+                           activeforeground=T["fg"], font=font(10), bd=0,
+                           highlightthickness=0).pack(side="left", padx=int(8 * s))
+        self.button(lrow, "Сбросить размер окна", app.launcher.reset_size).pack(side="right")
 
         self.section(p, "Рабочий стол")
         app.v_icons_hidden.set(not desktop.icons_visible())

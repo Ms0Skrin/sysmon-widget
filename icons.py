@@ -172,3 +172,28 @@ def file_icon(path, size, bg_hex, name="", accent="#4fa3ff"):
         if hicon:
             user32.DestroyIcon(hicon)
     return letter_icon(name or os.path.basename(path), size, bg_hex, accent)
+
+
+user32.PrintWindow.argtypes = [HANDLE, HANDLE, wintypes.UINT]
+user32.GetParent.restype = HANDLE
+user32.GetParent.argtypes = [HANDLE]
+
+
+def window_snapshot(tk_window):
+    """Снимок содержимого окна (без того, что просвечивает сзади) → PIL.Image."""
+    tk_window.update_idletasks()
+    hwnd = user32.GetParent(tk_window.winfo_id())
+    w, h = tk_window.winfo_width(), tk_window.winfo_height()
+    screen = user32.GetDC(None)
+    dc = gdi32.CreateCompatibleDC(screen)
+    bmi = BITMAPINFOHEADER(ctypes.sizeof(BITMAPINFOHEADER), w, -h, 1, 32, 0, 0, 0, 0, 0, 0)
+    bits = c_void_p()
+    bmp = gdi32.CreateDIBSection(dc, byref(bmi), 0, byref(bits), None, 0)
+    old = gdi32.SelectObject(dc, bmp)
+    ok = user32.PrintWindow(hwnd, dc, 2)  # PW_RENDERFULLCONTENT
+    img = Image.frombuffer("RGB", (w, h), ctypes.string_at(bits, w * h * 4), "raw", "BGRX", 0, 1).copy() if ok else None
+    gdi32.SelectObject(dc, old)
+    gdi32.DeleteObject(bmp)
+    gdi32.DeleteDC(dc)
+    user32.ReleaseDC(None, screen)
+    return img

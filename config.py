@@ -17,6 +17,8 @@ DEFAULTS = {
     "launcher_alpha": 0.92,
     "launcher_icon": 40,     # размер значков в панели приложений, px
     "launcher_cols": 0,      # колонок в панели (0 — авто)
+    "launcher_layout": "grid",  # grid — сетка, honey — соты
+    "launcher_w": 0, "launcher_h": 0,  # размер панели, заданный мышью (0 — авто)
     "theme": "graphite",
     "graph_style": "",       # "" — как в теме
     "lhm_enabled": True,     # встроенные датчики LibreHardwareMonitor
