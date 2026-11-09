@@ -79,7 +79,7 @@ public static class CleanLink
             !Uri.TryCreate(value,UriKind.Absolute,out var uri) ||
             (uri.Scheme!=Uri.UriSchemeHttp && uri.Scheme!=Uri.UriSchemeHttps) ||
             uri.Host.Length==0 || uri.UserInfo.Length!=0 || !uri.IsWellFormedOriginalString())
-            throw new ArgumentException($"Enter a complete HTTP or HTTPS URL without credentials, up to {maximumLength} characters.",parameter);
+            throw new ArgumentException(Localization.Format("Enter a complete HTTP or HTTPS URL without credentials, up to {0} characters.",maximumLength),parameter);
         return value;
     }
     public static string Clean(string input)

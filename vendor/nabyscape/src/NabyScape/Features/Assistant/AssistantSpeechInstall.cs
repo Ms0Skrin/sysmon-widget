@@ -186,7 +186,7 @@ internal sealed partial class AssistantSpeechInstall : IDisposable
                 int count;while((count=await source.ReadAsync(buffer,deadline.Token))>0)
                 {
                     total+=count;if(total>cap)throw new IOException("Download exceeds its expected size.");await output.WriteAsync(buffer.AsMemory(0,count),deadline.Token);checksum.AppendData(buffer,0,count);
-                    long now=Environment.TickCount64;if(now-lastProgress>150){lastProgress=now;Report($"Downloading {title} · {total/1024d/1024:0.0}"+(asset.Bytes>0?$" / {asset.Bytes/1024d/1024:0.0} MB":" MB"),asset.Bytes>0?total*100d/asset.Bytes:0);}
+                    long now=Environment.TickCount64;if(now-lastProgress>150){lastProgress=now;Report((asset.Bytes>0?Localization.Format("Downloading {0} · {1:0.0} / {2:0.0} MB",title,total/1024d/1024,asset.Bytes/1024d/1024):Localization.Format("Downloading {0} · {1:0.0} MB",title,total/1024d/1024)),asset.Bytes>0?total*100d/asset.Bytes:0);}
                 }
                 if(asset.Bytes>0 && total!=asset.Bytes || !Convert.ToHexString(checksum.GetHashAndReset()).Equals(asset.Sha256,StringComparison.OrdinalIgnoreCase))throw new IOException("Checksum verification failed. Retry the download.");
             }

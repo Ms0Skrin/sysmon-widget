@@ -109,7 +109,7 @@ internal static class AudioOutputPolicy
         foreach(var role in new[]{Role.Console,Role.Multimedia,Role.Communications})
         {
             try{apply(role);}
-            catch(Exception ex){errors.Add(new InvalidOperationException($"Could not change audio output for {role}: {ex.Message}",ex));}
+            catch(Exception ex){errors.Add(new InvalidOperationException(Localization.Format("Could not change audio output for {0}: {1}",role,ex.Message),ex));}
         }
         if(errors.Count>0)throw new AggregateException("Some audio output roles could not be changed.",errors);
     }

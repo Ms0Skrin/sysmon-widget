@@ -502,5 +502,10 @@ internal static partial class LocalizationCatalog
         ("Performance fixture", "Тестовый профиль производительности"),
         ("Deterministic local signal", "Детерминированный локальный сигнал"),
         ("NabyScape native shell worker", "Служебный процесс оболочки NabyScape"),
+        ("Could not save: ", "Не удалось сохранить: "),
+        ("Downloading {0} · {1:0.0} / {2:0.0} MB", "Загрузка {0} · {1:0.0} из {2:0.0} МБ"),
+        ("Downloading {0} · {1:0.0} MB", "Загрузка {0} · {1:0.0} МБ"),
+        ("Could not change audio output for {0}: {1}", "Не удалось сменить устройство вывода для «{0}»: {1}"),
+        ("Enter a complete HTTP or HTTPS URL without credentials, up to {0} characters.", "Введите полный адрес HTTP или HTTPS без учётных данных, не длиннее {0} символов."),
     };
 }
