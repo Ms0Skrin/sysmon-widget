@@ -50,6 +50,7 @@ internal static class Motion
     }
     public static void Text(TextBlock element,string value)
     {
+        value=Localization.Message(value);
         if(element.Text==value)return;
         element.Text=value;
         // Live values must never fade to zero on every timer/media update.

@@ -17,7 +17,7 @@ public sealed partial class OverlayWindow
         foreach(var item in p.Tasks.ToArray())
         {
             var row=new DockPanel{MinHeight=46,LastChildFill=true};var frame=new Border{Child=row,CornerRadius=new(8),Background=Brushes.Transparent,Padding=new(4,0,4,0)};
-            var remove=Icons.Button("x","Remove task "+item.Text,()=>MutateUtility(()=>p.RemoveTask(item.Id)),false,28);remove.Background=Brushes.Transparent;remove.Margin=new(8,0,0,0);DockPanel.SetDock(remove,Dock.Right);row.Children.Add(remove);MinimalWidgets.Reveal(remove,frame);
+            var remove=Icons.Button("x",Localization.Text("Remove task ")+item.Text,()=>MutateUtility(()=>p.RemoveTask(item.Id)),false,28);remove.Background=Brushes.Transparent;remove.Margin=new(8,0,0,0);DockPanel.SetDock(remove,Dock.Right);row.Children.Add(remove);MinimalWidgets.Reveal(remove,frame);
             var label=UI.Text(item.Text,12,item.Done?UI.Muted:Brushes.White);label.TextWrapping=TextWrapping.Wrap;if(item.Done)label.TextDecorations=TextDecorations.Strikethrough;
             var check=new CheckBox{Style=(Style)FindResource("TaskToggle"),IsChecked=item.Done,Content=label,Margin=new(0,9,0,9)};UI.Named(check,item.Text);row.Children.Add(check);
             row.SizeChanged+=(_,_)=>label.MaxWidth=Math.Max(80,row.ActualWidth-66);

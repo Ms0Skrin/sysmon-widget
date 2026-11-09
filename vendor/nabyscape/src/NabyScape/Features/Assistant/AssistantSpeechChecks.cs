@@ -25,7 +25,7 @@ internal sealed partial class AssistantProviderSettings
             {
                 ai.BeginSpeechCheck(()=>pending?.Cancel());
                 await ai.WaitForMicrophoneRelease();pending.Token.ThrowIfCancellationRequested();
-                foreach(Button button in actions.Children)button.IsEnabled=button.Content?.ToString()=="Cancel test";
+                foreach(Button button in actions.Children)button.IsEnabled=button.Content?.ToString() is string caption && (caption=="Cancel test" || caption==Localization.Text("Cancel test"));
                 var options=JsonSerializer.Deserialize<AssistantLocalVoiceOptions>(JsonSerializer.Serialize(ai.Options.LocalVoice))!;
                 await using var test=new LocalAssistantVoice(options,(_,_,_,_)=>throw new InvalidOperationException("Speech checks cannot send chat."),ai.Speech,ai.Options.MicrophoneId);
                 feedback.Text=kind=="sample"?"Preparing the saved speaking voice…":"Microphone on for four seconds. Say a short sentence.";

@@ -9,7 +9,7 @@ public sealed partial class OverlayWindow
     private readonly StackPanel peekClipboard=new(),peekTasks=new();
     private string clipboardPeekKey="",tasksPeekKey="";
     private FrameworkElement BuildToolPeek(string id)
-    {var page=new StackPanel();page.Children.Add(UI.Heading(id=="clips"?"Clipboard":"Tasks",13));page.Children.Add(id=="clips"?peekClipboard:peekTasks);var open=PlainPeekButton("Open all "+id,()=>{ShowTools(id);});open.Content=id=="clips"?"Open clipboard":"All tasks";open.FontSize=11;open.Margin=new(0,5,0,0);page.Children.Add(open);return page;}
+    {var page=new StackPanel();page.Children.Add(UI.Heading(id=="clips"?"Clipboard":"Tasks",13));page.Children.Add(id=="clips"?peekClipboard:peekTasks);var open=PlainPeekButton(Localization.Text("Open all ")+id,()=>{ShowTools(id);});open.Content=id=="clips"?"Open clipboard":"All tasks";open.FontSize=11;open.Margin=new(0,5,0,0);page.Children.Add(open);return page;}
     private void UpdateToolPeeks()
     {
         if(!peekInitialized)return;
@@ -34,7 +34,7 @@ public sealed partial class OverlayWindow
             foreach(var task in p.Tasks.Take(2))
             {
                 var label=UI.Text(task.Text,12);label.TextWrapping=TextWrapping.NoWrap;label.TextTrimming=TextTrimming.CharacterEllipsis;
-                var toggle=new CheckBox{Content=label,Tag=task,IsChecked=task.Done,Style=(Style)FindResource("TaskToggle"),Height=28,Margin=new(0)};UI.Named(toggle,"Preview task "+task.Id);
+                var toggle=new CheckBox{Content=label,Tag=task,IsChecked=task.Done,Style=(Style)FindResource("TaskToggle"),Height=28,Margin=new(0)};UI.Named(toggle,Localization.Text("Preview task ")+task.Id);
                 toggle.Click+=(_,_)=>{task.Done=toggle.IsChecked==true;p.Save();};peekTasks.Children.Add(toggle);
             }
             if(p.Tasks.Count==0)peekTasks.Children.Add(UI.Text("No tasks yet. Add one in Tools → Tasks.",11,UI.Muted));

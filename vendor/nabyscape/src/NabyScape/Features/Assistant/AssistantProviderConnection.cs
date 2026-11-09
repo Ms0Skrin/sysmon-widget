@@ -24,7 +24,7 @@ internal sealed partial class AssistantProviderSettings
         var draft=ReadDraftIdentity();bool changed=key.Password.Length>0 || draft!=ReadSavedIdentity(saved);
         if(changed)imageCheckStatus.Text="Image support: connection changed. Save and test again.";
         if(changed){draftPending=true;connectionStatus.Text="Not saved yet · choose Save provider to apply your connection changes. Test connection checks this draft only.";connectionStatus.Foreground=UI.Muted;Feedback(connectionStatus.Text);return;}
-        if(draftPending){draftPending=false;Feedback("No unsaved connection changes · image input "+(saved.Vision?"On":"Off")+".");}
+        if(draftPending){draftPending=false;Feedback(Localization.Text("No unsaved connection changes · image input ")+(saved.Vision?"On":"Off")+".");}
         var check=ai.ChatSetupFor(saved);connectionStatus.Text=check.Title+"\n"+check.Detail;connectionStatus.Foreground=check.Verified?UI.Brush("#A9CDBD"):UI.Muted;
     }
     private (string,string,string,string,bool,bool,string,string,string,string) ReadDraftIdentity()

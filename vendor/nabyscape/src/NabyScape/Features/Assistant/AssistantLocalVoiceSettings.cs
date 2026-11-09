@@ -101,7 +101,7 @@ internal sealed partial class AssistantProviderSettings
                 speechStatus.Text="Speech services are reachable. No microphone or speech synthesis was started. Save voice setup, return to Voice mode and choose Start conversation.";
                 app.Notify("Naby local voice","Speech services are reachable. Models and inference still depend on your server setup.");
             }
-            catch(Exception ex){speechStatus.Text="Local speech connection failed: "+(ex is HttpRequestException?"Start the local server and check its port.":ex.Message);app.Notify("Naby local voice",speechStatus.Text);}
+            catch(Exception ex){speechStatus.Text=Localization.Text("Local speech connection failed: ")+(ex is HttpRequestException?"Start the local server and check its port.":ex.Message);app.Notify("Naby local voice",speechStatus.Text);}
         }));
         var saveVoice=AssistantWindow.Pill("Save voice setup",()=>
         {
@@ -118,7 +118,7 @@ internal sealed partial class AssistantProviderSettings
         speechStatus.Margin=new(0,8,0,10);p.Children.Add(speechStatus);
         var streaming=new CheckBox{Content="Stream replies for faster speech",IsChecked=options.StreamReplies,Margin=new(0,6,0,8)};
         streaming.ToolTip="Uses streamed text when your chat endpoint supports it. Saving ends the current voice session.";
-        var tuning=new StackPanel();tuning.Children.Add(streaming);tuning.Children.Add(AssistantWindow.Pill("Save streaming",()=>{try{ai.SaveVoiceStreaming(streaming.IsChecked==true);Feedback("Streaming replies saved · "+(streaming.IsChecked==true?"On":"Off")+".");}catch(Exception ex){speechStatus.Text=ex.Message;}}));
+        var tuning=new StackPanel();tuning.Children.Add(streaming);tuning.Children.Add(AssistantWindow.Pill("Save streaming",()=>{try{ai.SaveVoiceStreaming(streaming.IsChecked==true);Feedback(Localization.Text("Streaming replies saved · ")+(streaming.IsChecked==true?"On":"Off")+".");}catch(Exception ex){speechStatus.Text=ex.Message;}}));
         p.Children.Add(new Expander{Header="Streaming preference",Content=tuning,Margin=new(0,12,0,8)});
         voiceSetup=p;return p;
     }

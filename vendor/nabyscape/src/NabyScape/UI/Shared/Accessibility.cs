@@ -97,6 +97,7 @@ internal static class Accessibility
     internal static void Announce(TextBlock text, string message)
     {
         Live(text);
+        message = Localization.Message(message);
         if (text.Text == message) return;
         text.Text = message;
         // Announce status only; transcripts and rapidly changing meters stay ordinary text.

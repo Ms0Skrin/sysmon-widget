@@ -191,7 +191,7 @@ public sealed partial class OverlayWindow
         RefreshFeedback();var audio=app.Audio;if(!audio.Available)return;
         if(audioSeen && app.Settings.ReactiveFeedback && app.Settings.VolumeFeedback && !expanded && !peeking && IsVisible && !TuckRequested && !userHidden)
         {
-            string text=audio.Device!=lastDevice?"Output · "+audio.Device:audio.Muted!=lastMuted || Math.Abs(audio.Volume-lastVolume)>.005?audio.Muted?"Audio muted":$"Volume  {audio.Volume*100:0}%":"";
+            string text=audio.Device!=lastDevice?"Output · "+audio.Device:audio.Muted!=lastMuted || Math.Abs(audio.Volume-lastVolume)>.005?audio.Muted?"Audio muted":Localization.Format("Volume  {0}%",(audio.Volume*100).ToString("0")):"";
             if(text!="")ShowFeedback(false,audio.Volume,audio.Muted);
         }
         RefreshFeedback();

@@ -41,6 +41,6 @@ public sealed partial class OverlayWindow
         var duration=UI.Text(range,10,UI.Muted);duration.Margin=new(0,5,0,0);labels.Children.Add(duration);
         if(item.MeetingUrl.Length>0){var join=UI.Button("Open meeting",()=>{try{ShortcutService.Open(new(){Target=item.MeetingUrl});}catch(Exception ex){app.Notify("Could not open meeting",ex.Message);}});join.FontSize=10;join.MinHeight=26;join.Padding=new(0,5,8,5);join.Background=Brushes.Transparent;join.HorizontalAlignment=HorizontalAlignment.Left;labels.Children.Add(join);}
         Grid.SetColumn(labels,2);row.Children.Add(labels);
-        var remove=MinimalWidgets.More("Event actions · "+item.Title,("Delete event "+item.Title,()=>MutateUtility(()=>app.Calendar.Remove(item.Id))));remove.Margin=new(0);Grid.SetColumn(remove,3);row.Children.Add(remove);MinimalWidgets.Reveal(remove,row);return row;
+        var remove=MinimalWidgets.More(Localization.Text("Event actions · ")+item.Title,(Localization.Text("Delete event ")+item.Title,()=>MutateUtility(()=>app.Calendar.Remove(item.Id))));remove.Margin=new(0);Grid.SetColumn(remove,3);row.Children.Add(remove);MinimalWidgets.Reveal(remove,row);return row;
     }
 }

@@ -53,7 +53,7 @@ internal sealed partial class LyricsService
         int revision=++textRevision;romanizing?.Cancel();romanizing=null;
         if(textMode!="Romaji" || !result.Lines.Any(l=>LyricsRomaji.ContainsJapanese(l.Text)) && !LyricsRomaji.ContainsJapanese(result.Plain)){Result=result;Changed?.Invoke();return;}
         if(romanized.TryGetValue(result,out var converted)){Result=converted;Changed?.Invoke();return;}
-        Result=result with{Status="Preparing Romaji… · "+result.Status};Changed?.Invoke();
+        Result=result with{Status=Localization.Text("Preparing Romaji… · ")+result.Status};Changed?.Invoke();
         var operation=new CancellationTokenSource();romanizing=operation;_=ConvertResult(result,revision,operation);
     }
     private async Task ConvertResult(LyricResult original,int revision,CancellationTokenSource operation)

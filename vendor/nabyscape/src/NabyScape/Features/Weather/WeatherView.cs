@@ -101,7 +101,7 @@ internal sealed class WeatherView : UserControl
         try
         {
             var snapshot=await app.Weather.Get(app.Settings,force,lifetime.Token);if(!IsLoaded || version!=revision)return;
-            shown=snapshot;Render(snapshot);status.Text="Updated "+snapshot.Updated.ToLocalTime().ToString("HH:mm");
+            shown=snapshot;Render(snapshot);status.Text=Localization.Text("Updated ")+snapshot.Updated.ToLocalTime().ToString("HH:mm");
         }
         catch(OperationCanceledException){}
         catch(Exception){if(IsLoaded && version==revision)status.Text=shown==null?"Weather unavailable. Refresh to try again.":"Saved outlook · connection unavailable";}
@@ -116,7 +116,7 @@ internal sealed class WeatherView : UserControl
         var hero=new Grid();hero.ColumnDefinitions.Add(new());hero.ColumnDefinitions.Add(new(){Width=new GridLength(108)});
         var readings=new StackPanel();var today=UI.Text(day?"TODAY · DAYLIGHT":"TONIGHT",9,UI.Brush("#B6C7D9"));readings.Children.Add(today);
         var temperature=UI.Text($"{data.Temperature:0}°",38);temperature.FontWeight=FontWeights.Light;temperature.TextWrapping=TextWrapping.NoWrap;readings.Children.Add(temperature);
-        readings.Children.Add(UI.Text(WeatherService.Condition(code),12));var range=UI.Text($"Feels {data.FeelsLike:0}°  ·  H {data.High:0}°  L {data.Low:0}°",10,UI.Brush("#B7CADC"));range.Margin=new(0,4,0,0);readings.Children.Add(range);hero.Children.Add(readings);
+        readings.Children.Add(UI.Text(Localization.Text(WeatherService.Condition(code)),12));var range=UI.Text(Localization.Format("Feels {0}°  ·  H {1}°  L {2}°",data.FeelsLike.ToString("0"),data.High.ToString("0"),data.Low.ToString("0")),10,UI.Brush("#B7CADC"));range.Margin=new(0,4,0,0);readings.Children.Add(range);hero.Children.Add(readings);
         var art=new WeatherArtwork{Code=code,Day=day,Width=92,Height=76,ReduceMotion=app.Settings.ReduceMotion};Grid.SetColumn(art,1);hero.Children.Add(art);panel.Children.Add(hero);
         var metrics=new System.Windows.Controls.Primitives.UniformGrid{Columns=3,Rows=1,Margin=new(0,7,0,0)};
         void Metric(string label,string value){var p=new StackPanel{Orientation=Orientation.Horizontal};p.Children.Add(UI.Text(label+" ",9,UI.Brush("#97ADC2")));p.Children.Add(UI.Text(value,10,UI.Brush("#DFE8EF")));metrics.Children.Add(p);}
@@ -125,11 +125,11 @@ internal sealed class WeatherView : UserControl
         var forecast=new Grid{Margin=new(10,5,10,4)};forecast.RowDefinitions.Add(new());forecast.RowDefinitions.Add(new(){Height=new GridLength(10)});var hourly=new System.Windows.Controls.Primitives.UniformGrid{Columns=Math.Max(1,data.Hours.Count),Rows=1};
         foreach(var hour in data.Hours)
         {
-            var column=new StackPanel{HorizontalAlignment=HorizontalAlignment.Center};column.Children.Add(UI.Text(hour.Time,9,UI.Muted));column.Children.Add(new WeatherArtwork{Code=hour.Code,Day=hour.Day,Width=22,Height=18,Margin=new(0,3,0,1),ReduceMotion=true,DecorativeMotion=false});var value=UI.Text($"{hour.Temperature:0}°",11);value.HorizontalAlignment=HorizontalAlignment.Center;column.Children.Add(value);column.ToolTip=$"{WeatherService.Condition(hour.Code)} · {hour.RainChance:0}% rain";hourly.Children.Add(column);
+            var column=new StackPanel{HorizontalAlignment=HorizontalAlignment.Center};column.Children.Add(UI.Text(hour.Time,9,UI.Muted));column.Children.Add(new WeatherArtwork{Code=hour.Code,Day=hour.Day,Width=22,Height=18,Margin=new(0,3,0,1),ReduceMotion=true,DecorativeMotion=false});var value=UI.Text($"{hour.Temperature:0}°",11);value.HorizontalAlignment=HorizontalAlignment.Center;column.Children.Add(value);column.ToolTip=Localization.Format("{0} · {1}% rain",Localization.Text(WeatherService.Condition(hour.Code)),hour.RainChance.ToString("0"));hourly.Children.Add(column);
         }
         forecast.Children.Add(hourly);var trend=new WeatherTrend{Height=10};Grid.SetRow(trend,1);forecast.Children.Add(trend);
         string Clock(string value)=>value.Length>=16?value.Substring(11,5):"—";
-        content.Children.Add(new Border{Child=forecast,Background=UI.Brush("#111820"),BorderBrush=UI.Brush("#273440"),BorderThickness=new(.6),CornerRadius=new(12),Margin=new(0,6,0,0),ToolTip="Next hours · Sunrise "+Clock(data.Sunrise)+" · Sunset "+Clock(data.Sunset)});
+        content.Children.Add(new Border{Child=forecast,Background=UI.Brush("#111820"),BorderBrush=UI.Brush("#273440"),BorderThickness=new(.6),CornerRadius=new(12),Margin=new(0,6,0,0),ToolTip=Localization.Text("Next hours · Sunrise ")+Clock(data.Sunrise)+Localization.Text(" · Sunset ")+Clock(data.Sunset)});
         ContentSizeChanged?.Invoke();
     }
 }

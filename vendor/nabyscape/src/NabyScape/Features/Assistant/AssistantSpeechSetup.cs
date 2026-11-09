@@ -103,10 +103,10 @@ internal sealed partial class AssistantProviderSettings
             {
                 if(service.Busy)throw new InvalidOperationException("Wait for installation to finish or cancel it first.");if(asr.SelectedItem is not SpeechAsrModel a || tts.SelectedItem is not SpeechTtsModel t)return false;
                 if(!a.Supports(Language()) || !t.Supports(Language()))throw new InvalidOperationException("Choose listening and speaking models that support the selected language.");
-                bool useGpu=service.Hardware?.UseGpu(a)==true && gpu.IsChecked==true;ai.UseSpeechPack(a,t,useGpu,Preference(),Language());RefreshEnabled();Feedback("Speech models saved · "+a.Name+" / "+t.Name+".");
+                bool useGpu=service.Hardware?.UseGpu(a)==true && gpu.IsChecked==true;ai.UseSpeechPack(a,t,useGpu,Preference(),Language());RefreshEnabled();Feedback(Localization.Text("Speech models saved · ")+a.Name+" / "+t.Name+".");
                 savedMessage=ai.Provider==null || string.IsNullOrWhiteSpace(ai.Provider.Model)?"Pack selected. Connect Hermes or choose a chat provider/model, then return to Voice mode.":"Ready. Return to Voice mode → Start conversation. End conversation closes the speech engines.";Refresh();return true;
             }
-            catch(Exception ex){savedMessage=ex.Message;Feedback("Speech models not saved · "+ex.Message,true);Refresh();return false;}
+            catch(Exception ex){savedMessage=ex.Message;Feedback(Localization.Text("Speech models not saved · ")+ex.Message,true);Refresh();return false;}
         }
         saveManagedPack=UsePack;Voices();
         foreach(var row in profileRows)row.Button.Click+=(_,_)=>{if(service.Hardware is {} h && SpeechCatalog.ProfilePack(h,row.Profile,Language(),Preference()) is {} pack)SelectPack(pack);};

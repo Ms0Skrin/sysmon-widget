@@ -27,16 +27,16 @@ internal sealed partial class AssistantProviderSettings
         {
             var row=new StackPanel();row.Children.Add(UI.Text((tts?"TTS · ":"ASR · ")+name,12));
             var detail=UI.Text("",11,UI.Muted);detail.Margin=new(0,4,0,8);row.Children.Add(detail);
-            var remove=AssistantWindow.Pill("Uninstall",()=>{});remove.HorizontalAlignment=HorizontalAlignment.Left;UI.Named(remove,"Uninstall "+name);
+            var remove=AssistantWindow.Pill("Uninstall",()=>{});remove.HorizontalAlignment=HorizontalAlignment.Left;UI.Named(remove,Localization.Text("Uninstall ")+name);
             remove.Click+=async(_,_)=>
             {
                 if(service.Busy || ai.SpeechCheckBusy){Feedback("Finish the speech check before uninstalling.",true);return;}
                 bool active=service.ModelInUse(ai.Options.LocalVoice,id,tts);
-                string size;try{size=AssistantSpeechInstall.StorageSize(await System.Threading.Tasks.Task.Run(()=>service.ManagedModelBytes(id,tts)));}catch(Exception ex){Feedback("Could not inspect model storage · "+ex.Message,true);return;}
+                string size;try{size=AssistantSpeechInstall.StorageSize(await System.Threading.Tasks.Task.Run(()=>service.ManagedModelBytes(id,tts)));}catch(Exception ex){Feedback(Localization.Text("Could not inspect model storage · ")+ex.Message,true);return;}
                 string warning="Uninstall "+name+"?\n\nIts downloaded model files and matching cache will be deleted. About "+size+" will be freed. You can reinstall it later."+(active?"\n\nThis is your selected model. Local voice will be unavailable until you select an installed pack or reinstall this one.":"")+(ai.VoiceConnected || ai.Busy || active?"\n\nVoice and wake listening will stop.":"");
                 if(MessageBox.Show(Window.GetWindow(this),warning,"Uninstall speech model",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
                 try{bool ok=await ai.UninstallSpeechModel(id,tts);result.Text=service.Status;Feedback(result.Text,!ok);if(ok)showReinstall=true;Refresh();}
-                catch(Exception ex){result.Text="Could not uninstall this model. "+ex.Message;Feedback(result.Text,true);}
+                catch(Exception ex){result.Text=Localization.Text("Could not uninstall this model. ")+ex.Message;Feedback(result.Text,true);}
             };
             row.Children.Add(remove);var card=new Border{Child=row,Padding=new(12),Margin=new(0,6,0,0),CornerRadius=new(8),Background=UI.Brush("#22262D")};body.Children.Add(card);rows.Add((id,tts,card,detail,remove));
         }

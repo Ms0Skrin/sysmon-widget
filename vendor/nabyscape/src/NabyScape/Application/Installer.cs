@@ -28,7 +28,7 @@ internal static class Installer
     }
     internal static Window CreateWindow(string[] args)
     {
-        var window=new Window{Title="Install NabyScape · "+RuntimePlatform.Rid,Width=620,Height=535,ResizeMode=ResizeMode.NoResize,WindowStartupLocation=WindowStartupLocation.CenterScreen};
+        var window=new Window{Title=Localization.Text("Install NabyScape · ")+RuntimePlatform.Rid,Width=620,Height=535,ResizeMode=ResizeMode.NoResize,WindowStartupLocation=WindowStartupLocation.CenterScreen};
         window.Icon=System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/Assets/island.ico"));window.SourceInitialized+=(_,_)=>Native.DarkTitleBar(window);
         var panel=new StackPanel{Margin=new(36)};panel.Children.Add(UI.Text("NabyScape",36,UI.Brush("#B4F272")));panel.Children.Add(UI.Text("A little space. More possibilities.",15,UI.Muted));
         panel.Children.Add(new Border{Height=26});panel.Children.Add(UI.Text("Music, focus, and your everyday tools — always close.\n\nInstalls for this Windows user only. Choose your folder and startup preference below.",14));
@@ -48,7 +48,7 @@ internal static class Installer
         {
             button.IsEnabled=false;
             try {string target=InstallPaths.Validate(folder.Text.Trim());Install(target,startupChoice.IsChecked==true);if(launch.IsChecked==true)Launch(target);window.Close();}
-            catch(Exception ex) {state.Text="Installation failed: "+ex.Message;button.IsEnabled=true;}
+            catch(Exception ex) {state.Text=Localization.Text("Installation failed: ")+ex.Message;button.IsEnabled=true;}
         };panel.Children.Add(button);window.Content=panel;return window;
     }
     private static void Launch(string folder)=>Process.Start(new ProcessStartInfo(Path.Combine(folder,"NabyScape.exe")){UseShellExecute=true});

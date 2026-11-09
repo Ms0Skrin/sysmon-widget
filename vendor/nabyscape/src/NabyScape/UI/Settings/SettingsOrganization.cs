@@ -72,6 +72,6 @@ public sealed partial class SettingsWindow
         var time=UI.Text(DateTime.Now.ToString("HH:mm"),10);time.FontWeight=FontWeights.Bold;time.HorizontalAlignment=HorizontalAlignment.Center;island.Child=time;scene.Children.Add(island);
         scene.MouseEnter+=(_,_)=>{slide.BeginAnimation(TranslateTransform.YProperty,null);slide.Y=0;};scene.MouseLeave+=(_,_)=>slide.Y=tuck?-offset:0;
         panel.Children.Add(scene);panel.Children.Add(UI.Text(tuck?"Hover to reveal · "+app.Settings.TuckEdge.ToString("0")+" DIP tucked edge. Manual hide removes it entirely.":"Auto-tuck is off. The island stays visible.",12));
-        panel.Children.Add(UI.Text("Fullscreen: "+(app.Settings.HideFullscreen?"tuck":"visible")+" · Maximized: "+(app.Settings.HideMaximized?"tuck":"visible"),11,UI.Muted));return panel;
+        panel.Children.Add(UI.Text(Localization.Text("Fullscreen: ")+Localization.Text(app.Settings.HideFullscreen?"tuck":"visible")+Localization.Text(" · Maximized: ")+Localization.Text(app.Settings.HideMaximized?"tuck":"visible"),11,UI.Muted));return panel;
     }
 }

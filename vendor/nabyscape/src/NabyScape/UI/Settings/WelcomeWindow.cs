@@ -43,7 +43,7 @@ internal sealed class WelcomeWindow : Window
 
     private void Render()
     {
-        body.Children.Clear();progress.Text=$"GET STARTED  /  {step+1} OF 3";body.Children.Add(progress);
+        body.Children.Clear();progress.Text=Localization.Format("GET STARTED  /  {0} OF 3",step+1);body.Children.Add(progress);
         back.Visibility=step==0?Visibility.Collapsed:Visibility.Visible;
         next.Content=step==2?(purpose=="AI"?"Continue to AI setup":"Finish setup"):"Next";
         body.Children.Add(UI.Text(step==0?"What brings you here?":step==1?"Make it yours.":"Your dock is ready.",28));
@@ -63,13 +63,13 @@ internal sealed class WelcomeWindow : Window
             foreach(string side in new[]{"Top","Bottom","Left","Right"})
             {
                 var option=new RadioButton{Content=side,GroupName="Dock position",IsChecked=edge==side,Margin=new(0,10,16,14),Padding=new(6)};
-                UI.Named(option,"Dock position: "+side);option.Checked+=(_,_)=>{edge=side;edgeChanged=true;};edges.Children.Add(option);
+                UI.Named(option,Localization.Text("Dock position: ")+side);option.Checked+=(_,_)=>{edge=side;edgeChanged=true;};edges.Children.Add(option);
             }
             body.Children.Add(edges);body.Children.Add(UI.Text("Your widgets",16));
             foreach(var choice in app.Settings.Widgets.Where(w=>purpose=="Custom" || widgets[w.Id]))
             {
                 var id=choice.Id;var toggle=new CheckBox{Content=Settings.Names.GetValueOrDefault(id)??id,IsChecked=widgets[id],Margin=new(0,12,0,3),Padding=new(6)};
-                UI.Named(toggle,"Enable "+id);toggle.Click+=(_,_)=>{widgets[id]=toggle.IsChecked==true;changedWidgets.Add(id);};body.Children.Add(toggle);
+                UI.Named(toggle,Localization.Text("Enable ")+id);toggle.Click+=(_,_)=>{widgets[id]=toggle.IsChecked==true;changedWidgets.Add(id);};body.Children.Add(toggle);
             }
             body.Children.Add(UI.Text("All widgets remain available in Settings. Weather asks for a city; AI asks for a connection.",12,UI.Muted));
         }
@@ -78,7 +78,7 @@ internal sealed class WelcomeWindow : Window
             body.Children.Add(UI.Text("Click the dock to open your widgets. Hover for a quick look. Right-click the tray icon to open Settings.",14,UI.Muted));
             body.Children.Add(UI.Text(string.Join(" · ",widgets.Where(w=>w.Value).Select(w=>Settings.Names.GetValueOrDefault(w.Key)??w.Key)),13));
             if(purpose!="AI")body.Children.Add(UI.Card("AI is optional",UI.Text("Connect your own provider or Hermes whenever you're ready. Voice starts only when you choose it.",13,UI.Muted),UI.CaptionButton("Set up AI",()=>Finish(true))));
-            body.Children.Add(UI.Text("Clipboard history: "+(app.Settings.ClipboardHistory?"On":"Off")+" · Download alerts: "+(app.Settings.DownloadsEnabled?"On":"Off")+". Change these in Settings at any time.",12,UI.Muted));
+            body.Children.Add(UI.Text(Localization.Text("Clipboard history: ")+Localization.Text(app.Settings.ClipboardHistory?"On":"Off")+Localization.Text(" · Download alerts: ")+Localization.Text(app.Settings.DownloadsEnabled?"On":"Off")+Localization.Text(". Change these in Settings at any time."),12,UI.Muted));
             body.Children.Add(UI.Text("You can reopen this guide from Settings > General.",12,UI.Muted));
         }
         body.Children.Add(error);

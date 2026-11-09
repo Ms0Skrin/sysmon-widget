@@ -190,7 +190,7 @@ internal sealed partial class AssistantView : UserControl,IDisposable
             draftFiles.IsEnabled=!ai.Busy && !ai.ImportingFiles;
             draftFiles.Visibility=ai.Busy?Visibility.Collapsed:Visibility.Visible;
             share.ToolTip=ai.Desktop.Sharing?"Stop sharing "+ai.Desktop.SourceName:"Share a window or display";if(ai.Desktop.Sharing){share.SetResourceReference(Control.BackgroundProperty,"SelectionFill");share.SetResourceReference(Control.ForegroundProperty,"SelectionText");}else{share.Background=Brushes.Transparent;share.SetResourceReference(Control.ForegroundProperty,"ControlText");}
-            screenPreview.Header="Sharing · "+ai.Desktop.SourceName;screenPreview.Visibility=ai.Desktop.Sharing?Visibility.Visible:Visibility.Collapsed;
+            screenPreview.Header=Localization.Text("Sharing · ")+ai.Desktop.SourceName;screenPreview.Visibility=ai.Desktop.Sharing?Visibility.Visible:Visibility.Collapsed;
             bool restoring=restoreScroll,bottom=restoring?followLatest:transcript.ScrollableHeight-transcript.VerticalOffset<30;
             var history=ai.Conversation.Messages;
             if(ReferenceEquals(renderedHistory,history) && !restoring){RefreshOrb();RefreshScreen();return;}

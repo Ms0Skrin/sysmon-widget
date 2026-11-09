@@ -104,7 +104,7 @@ internal sealed partial class AssistantRuntime : IDisposable
             draftFiles.AddRange(ready);Status="Attachments ready. They are sent only when you press Send.";
         }
         catch(OperationCanceledException){}
-        catch(Exception ex){if(generation==Conversation.Epoch && !token.IsCancellationRequested){state=AssistantState.Error;Status="Could not attach file: "+ex.Message;}}
+        catch(Exception ex){if(generation==Conversation.Epoch && !token.IsCancellationRequested){state=AssistantState.Error;Status=Localization.Text("Could not attach file: ")+ex.Message;}}
         finally{ImportingFiles=false;Notify();}
     }
     internal Task AttachImage(System.Windows.Media.Imaging.BitmapSource image)
@@ -118,7 +118,7 @@ internal sealed partial class AssistantRuntime : IDisposable
         ImportingFiles=true;Status="Preparing clipboard image…";Notify();var token=lifetime.Token;int generation=Conversation.Epoch;
         try{var file=await Task.Run(prepare,token);token.ThrowIfCancellationRequested();if(generation!=Conversation.Epoch)return;if(draftFiles.Count>=AssistantAttachments.MaximumFiles || draftFiles.Sum(f=>f.Weight)+file.Weight>AssistantAttachments.MaximumPayload)throw new InvalidOperationException("The attachment limit is reached. Remove a file first.");draftFiles.Add(file);Status="Image ready. Press Send to share it.";}
         catch(OperationCanceledException){}
-        catch(Exception ex){if(generation==Conversation.Epoch && !token.IsCancellationRequested){state=AssistantState.Error;Status="Could not paste image: "+ex.Message;}}
+        catch(Exception ex){if(generation==Conversation.Epoch && !token.IsCancellationRequested){state=AssistantState.Error;Status=Localization.Text("Could not paste image: ")+ex.Message;}}
         finally{ImportingFiles=false;Notify();}
     }
     internal void RemoveAttachment(AssistantAttachment file){if(!Busy && !ImportingFiles){draftFiles.Remove(file);Notify();}}
@@ -134,7 +134,7 @@ internal sealed partial class AssistantRuntime : IDisposable
         if(!Options.Enabled)throw new InvalidOperationException("Enable AI companion first.");
         if(ContextProvider?.Vision!=true)throw new InvalidOperationException("Choose a model that supports images, then enable Image input in AI settings.");
         if(!await Desktop.Pick(owner))return false;
-        Status="Sharing: "+Desktop.SourceName;Notify();return true;
+        Status=Localization.Text("Sharing: ")+Desktop.SourceName;Notify();return true;
     }
     internal void StopSharing(){Desktop.Stop();Status="Screen sharing stopped.";Notify();}
     private async Task<string?> Screen(CancellationToken token)

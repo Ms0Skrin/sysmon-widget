@@ -19,9 +19,9 @@ public sealed partial class OverlayWindow
         }
         else if(id=="shortcuts")
         {
-            var apps=new WrapPanel();foreach(var shortcut in app.Settings.Shortcuts.Take(4)){var target=shortcut;var b=PlainPeekButton("Launch "+target.Name,()=>ShortcutService.Open(target));b.Content=UI.Text(target.Name,11);b.Padding=new(7,3,7,3);apps.Children.Add(b);}page.Children.Add(apps);
+            var apps=new WrapPanel();foreach(var shortcut in app.Settings.Shortcuts.Take(4)){var target=shortcut;var b=PlainPeekButton(Localization.Text("Launch ")+target.Name,()=>ShortcutService.Open(target));b.Content=UI.Text(target.Name,11);b.Padding=new(7,3,7,3);apps.Children.Add(b);}page.Children.Add(apps);
         }
-        var open=PlainPeekButton("Open "+PeekName(id),OpenPeekPage);open.Content="Open "+PeekName(id);open.FontSize=10;open.Foreground=UI.Muted;open.HorizontalAlignment=HorizontalAlignment.Left;page.Children.Add(open);return page;
+        var open=PlainPeekButton(Localization.Text("Open ")+PeekName(id),OpenPeekPage);open.Content=Localization.Text("Open ")+PeekName(id);open.FontSize=10;open.Foreground=UI.Muted;open.HorizontalAlignment=HorizontalAlignment.Left;page.Children.Add(open);return page;
     }
     private void UpdateExtraPeek()
     {
@@ -31,7 +31,7 @@ public sealed partial class OverlayWindow
         {
             "clock"=>DateTime.Now.ToString(app.Settings.Clock24Hour?"HH:mm":"h:mm tt"),
             "volume"=>app.Audio.Available?$"{app.Audio.Volume*100:0}% · {(app.Audio.Muted?"Muted":"Output volume")}":"No output device",
-            "battery"=>System.Windows.Forms.SystemInformation.PowerStatus.BatteryChargeStatus.HasFlag(System.Windows.Forms.BatteryChargeStatus.NoSystemBattery)?"Connected to power":$"{System.Windows.Forms.SystemInformation.PowerStatus.BatteryLifePercent*100:0}% battery",
+            "battery"=>System.Windows.Forms.SystemInformation.PowerStatus.BatteryChargeStatus.HasFlag(System.Windows.Forms.BatteryChargeStatus.NoSystemBattery)?"Connected to power":Localization.Format("{0}% battery",(System.Windows.Forms.SystemInformation.PowerStatus.BatteryLifePercent*100).ToString("0")),
             "shortcuts"=>"Your favorite apps, one click away",
             "power"=>"Open to choose a Windows power plan",
             "awake"=>"Keep your computer awake while you work",
@@ -64,7 +64,7 @@ internal sealed class WeatherGlance : UserControl
         try
         {
             var data=await app.Weather.Get(app.Settings,false,lifetime.Token);if(!IsLoaded || key!=WeatherService.Key(app.Settings))return;
-            Motion.Text(temperature,$"{data.Temperature:0}°");Motion.Text(detail,WeatherService.Condition(data.Code)+$" · H {data.High:0}° L {data.Low:0}°");art.Code=data.Code;art.Day=data.Day;art.ReduceMotion=true;art.InvalidateVisual();
+            Motion.Text(temperature,$"{data.Temperature:0}°");Motion.Text(detail,Localization.Text(WeatherService.Condition(data.Code))+Localization.Format(" · H {0}° L {1}°",data.High.ToString("0"),data.Low.ToString("0")));art.Code=data.Code;art.Day=data.Day;art.ReduceMotion=true;art.InvalidateVisual();
             if(scene.Children[0] is WeatherSky old)scene.Children.Remove(old);scene.Children.Insert(0,new WeatherSky{Code=data.Code,Day=data.Day});
         }
         catch(System.OperationCanceledException){}catch(Exception){Motion.Text(detail,"Open Weather for your outlook");}finally{busy=false;}

@@ -40,7 +40,7 @@ internal sealed class DetachedPreviewView : IDisposable
         this.app=app;this.kind=kind;this.openMain=openMain;
         Content=new ScrollViewer{Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
         switch(kind){case "stopwatch":Add(new StopwatchView(app));break;case "media":BuildMusic();break;case "timer":case "focus":BuildClock();break;case "notes":BuildNotes();break;case "files":BuildShelf();break;case "calendar":BuildCalendar();break;case "system":BuildSystem();break;}
-        var open=UI.Button("Open "+DetachedPreviewWindow.NameFor(kind),openMain);open.Margin=new(0,12,0,0);panel.Children.Add(open);
+        var open=UI.Button(Localization.Text("Open ")+DetachedPreviewWindow.NameFor(kind),openMain);open.Margin=new(0,12,0,0);panel.Children.Add(open);
         noteSave.Tick+=(_,_)=>Flush();
     }
     internal void SetVisible(bool value)
@@ -113,7 +113,7 @@ internal sealed class DetachedPreviewView : IDisposable
         Add(Action("Drag selected files",DragFiles));status=UI.Text("",11,UI.Muted);Add(status);
     }
     private ShelfItem[] SelectedFiles()=>shelf!.SelectedItems.Cast<ListBoxItem>().Select(i=>(ShelfItem)i.Tag).ToArray();
-    private void OpenFiles(){foreach(var item in SelectedFiles()){if(!item.Exists){status!.Text="Missing file: "+item.Name;continue;}try{ShortcutService.Open(new(){Target=item.Path});}catch(Exception ex){app.Store.Log(ex);status!.Text="Could not open "+item.Name;}}}
+    private void OpenFiles(){foreach(var item in SelectedFiles()){if(!item.Exists){status!.Text=Localization.Text("Missing file: ")+item.Name;continue;}try{ShortcutService.Open(new(){Target=item.Path});}catch(Exception ex){app.Store.Log(ex);status!.Text=Localization.Text("Could not open ")+item.Name;}}}
     private void RemoveFiles(){foreach(var item in SelectedFiles())app.Productivity.RemoveFile(item.Path);}
     private void DragFiles()
     {
@@ -201,8 +201,8 @@ internal sealed class DetachedPreviewView : IDisposable
             else if(kind=="notes")SyncNotes();else if(kind=="files")RefreshShelf();else if(kind=="calendar")RenderEvents();
             else if(kind=="system")
             {
-                var usage=app.Usage;title!.Text=double.IsFinite(usage.cpu)?$"CPU  {usage.cpu:0}%":"CPU unavailable";progress!.Value=double.IsFinite(usage.cpu)?Math.Clamp(usage.cpu,0,100):0;
-                detail!.Text=usage.total>0?$"RAM  {usage.used:0.0} / {usage.total:0.0} GB":"RAM unavailable";memory!.Value=usage.total>0?Math.Clamp(usage.used/usage.total*100,0,100):0;
+                var usage=app.Usage;title!.Text=double.IsFinite(usage.cpu)?Localization.Format("CPU  {0}%",usage.cpu.ToString("0")):"CPU unavailable";progress!.Value=double.IsFinite(usage.cpu)?Math.Clamp(usage.cpu,0,100):0;
+                detail!.Text=usage.total>0?Localization.Format("RAM  {0} / {1} GB",usage.used.ToString("0.0"),usage.total.ToString("0.0")):"RAM unavailable";memory!.Value=usage.total>0?Math.Clamp(usage.used/usage.total*100,0,100):0;
             }
         }
         finally{updating=false;}

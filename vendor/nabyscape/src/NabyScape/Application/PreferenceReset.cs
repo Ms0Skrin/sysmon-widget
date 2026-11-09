@@ -46,8 +46,10 @@ internal static class PreferenceReset
             "Application"=>"update checks and automatic downloads, interface language, text size and contrast",
             _=>"update checks, notification delivery and download monitoring"
         };
-        string detail=category==null?string.Join("; ",Categories.Where(pair=>pair.Value.Length>0).Select(pair=>pair.Key+": "+Detail(pair.Key))):Detail(category);
-        return $"Reset {(category??"all preferences")} to defaults ({Keys(category).Length} preferences): {detail}. Startup, clipboard capture/history, shortcuts, Notes, Tasks, shelf, calendar and activity targets are kept. A preference backup is saved first.";
+        string detail=category==null?string.Join("; ",Categories.Where(pair=>pair.Value.Length>0).Select(pair=>Localization.Text(pair.Key)+": "+Localization.Text(Detail(pair.Key)))):Localization.Text(Detail(category));
+        return category==null
+            ?Localization.Format("Reset all preferences to defaults ({0} preferences): {1}. Startup, clipboard capture/history, shortcuts, Notes, Tasks, shelf, calendar and activity targets are kept. A preference backup is saved first.",Keys(category).Length,detail)
+            :Localization.Format("Reset {0} to defaults ({1} preferences): {2}. Startup, clipboard capture/history, shortcuts, Notes, Tasks, shelf, calendar and activity targets are kept. A preference backup is saved first.",Localization.Text(category),Keys(category).Length,detail);
     }
     private static string[] Keys(string? category)=>category==null?Categories.Values.SelectMany(v=>v).Where(key=>key!=nameof(Settings.ClipboardHistory)).Distinct().ToArray():Categories[category];
     internal static void Reset(Store store,Settings target,string? category)
@@ -92,6 +94,6 @@ internal static class HotkeyPolicy
         var shortcuts=new[]{("Panel",s.HotkeyEnabled,s.HotkeyModifiers,s.HotkeyKey),("Visibility",s.VisibilityHotkeyEnabled,s.VisibilityHotkeyModifiers,s.VisibilityHotkeyKey),("Tuck",s.TuckHotkeyEnabled,s.TuckHotkeyModifiers,s.TuckHotkeyKey)};
         var own=shortcuts.First(v=>v.Item1==action);
         var other=shortcuts.FirstOrDefault(v=>v.Item1!=action && own.Item2 && v.Item2 && v.Item3==own.Item3 && v.Item4==own.Item4);
-        return other.Item1==null?"":$"{action} shortcut conflicts with {other.Item1}. Choose a different key or modifiers.";
+        return other.Item1==null?"":Localization.Format("{0} shortcut conflicts with {1}. Choose a different key or modifiers.",Localization.Text(action+" shortcut"),Localization.Text(other.Item1+" shortcut"));
     }
 }

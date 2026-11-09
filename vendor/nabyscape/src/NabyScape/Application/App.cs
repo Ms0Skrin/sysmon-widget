@@ -53,6 +53,7 @@ public sealed partial class App : Application
     }
     internal void PostNotice(InternalNotice notice)
     {
+        notice=notice with{Title=Localization.Message(notice.Title),Detail=Localization.Message(notice.Detail)};
         if(diagnosticMode && !Array.Exists(Environment.GetCommandLineArgs(),a=>a=="--stage4-only"))return;
         Notifications.Post(Settings,notice,overlay?.ManuallyHidden==true,n=>tray?.ShowBalloonTip(4500,n.Title,n.Detail,Forms.ToolTipIcon.Info),DateTimeOffset.UtcNow);
     }
@@ -69,9 +70,9 @@ public sealed partial class App : Application
     internal DetachedPreviewManager Previews {get;private set;}=null!;
     public CalendarService Calendar {get;private set;}=null!;
     public KeepAwakeService Awake {get;private set;}=null!;
-    public string HotkeyStatus=>!Settings.HotkeyEnabled?"Hotkey off":overlay?.HotkeyError.Length>0?overlay.HotkeyError:$"Active · {Settings.HotkeyModifiers}+{Settings.HotkeyKey}";
-    public string VisibilityHotkeyStatus=>!Settings.VisibilityHotkeyEnabled?"Visibility shortcut off":overlay?.VisibilityHotkeyError.Length>0?overlay.VisibilityHotkeyError:$"Hide / show · {Settings.VisibilityHotkeyModifiers}+{Settings.VisibilityHotkeyKey}";
-    public string TuckHotkeyStatus=>!Settings.TuckHotkeyEnabled?"Tuck shortcut off":overlay?.TuckHotkeyError.Length>0?overlay.TuckHotkeyError:$"Tuck / return to automatic · {Settings.TuckHotkeyModifiers}+{Settings.TuckHotkeyKey}";
+    public string HotkeyStatus=>!Settings.HotkeyEnabled?"Hotkey off":overlay?.HotkeyError.Length>0?overlay.HotkeyError:Localization.Format("Active · {0}+{1}",Settings.HotkeyModifiers,Settings.HotkeyKey);
+    public string VisibilityHotkeyStatus=>!Settings.VisibilityHotkeyEnabled?"Visibility shortcut off":overlay?.VisibilityHotkeyError.Length>0?overlay.VisibilityHotkeyError:Localization.Format("Hide / show · {0}+{1}",Settings.VisibilityHotkeyModifiers,Settings.VisibilityHotkeyKey);
+    public string TuckHotkeyStatus=>!Settings.TuckHotkeyEnabled?"Tuck shortcut off":overlay?.TuckHotkeyError.Length>0?overlay.TuckHotkeyError:Localization.Format("Tuck / return to automatic · {0}+{1}",Settings.TuckHotkeyModifiers,Settings.TuckHotkeyKey);
     internal void FlushPreferenceEditors()=>overlay?.FlushPreferenceEditors();
     // Countdown completions route through the shared notification manager.
     internal void OpenVoice()=>overlay?.OpenFeaturePage("voice");
@@ -116,7 +117,7 @@ public sealed partial class App : Application
         var diagnosticIndex=Array.IndexOf(e.Args,"--diagnostics");
         var diagnosticPath=diagnosticIndex>=0 && diagnosticIndex+1<e.Args.Length ? e.Args[diagnosticIndex+1] : null;
         diagnosticMode=diagnosticPath!=null;
-        Store=new(diagnosticPath==null ? null : Path.Combine(diagnosticPath,"test-profile"));bool existingProfile=File.Exists(Path.Combine(Store.DirectoryPath,"settings.json"));Settings=diagnosticPath==null?Store.Load<Settings>("settings"):new Settings();Settings.Normalize();Localization.Configure(Settings);Settings.AutoStart=StartupService.Enabled();
+        Store=new(diagnosticPath==null ? null : Path.Combine(diagnosticPath,"test-profile"));bool existingProfile=File.Exists(Path.Combine(Store.DirectoryPath,"settings.json"));Settings=diagnosticPath==null?Store.Load<Settings>("settings"):new Settings{UiLanguage="en"};Settings.Normalize();if(diagnosticPath==null)ApplyRussianDefault();Localization.Configure(Settings);LocalizedControls.Install();Settings.AutoStart=StartupService.Enabled();
         if(assistantFixture || isolatedFixture){Settings.HotkeyEnabled=Settings.VisibilityHotkeyEnabled=Settings.TuckHotkeyEnabled=false;Settings.HideFullscreen=Settings.HideMaximized=false;}
         Updates=new(Store,Array.Exists(e.Args,a=>a=="--stage3-only")?new Stage3Diagnostics.Network():null,stagingDirectory:diagnosticPath!=null?Path.Combine(Store.DirectoryPath,"updates"):null);
         UI.ResourceBrush("Accent",UI.Brush(Settings.Accent));UI.ApplyControlTheme(Settings);
@@ -237,6 +238,14 @@ public sealed partial class App : Application
         if(settingsWindow==null) { settingsWindow=new SettingsWindow(this);settingsWindow.Closed+=(_,_)=>settingsWindow=null; }
         if(diagnosticMode)settingsWindow.ShowActivated=false;
         settingsWindow.Show();if(!diagnosticMode)settingsWindow.Activate();
+    }
+    // Russian build: switch an existing profile to Russian once; afterwards the user's language choice is kept.
+    private void ApplyRussianDefault()
+    {
+        string marker=Path.Combine(Store.DirectoryPath,"localization-ru.flag");
+        if(File.Exists(marker))return;
+        Settings.UiLanguage="ru";
+        try{Store.Save("settings",Settings);File.WriteAllText(marker,"1");}catch(Exception ex){Store.Log(ex);}
     }
     public void Notify(string title,string text)
     { PostNotice(new("failure",title,text)); }

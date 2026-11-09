@@ -73,7 +73,7 @@ internal sealed partial class AssistantProviderSettings
         input.SelectionChanged+=(_,_)=>
         {
             if(loading || input.SelectedItem is not AssistantMicrophone selected)return;
-            try{ai.SaveMicrophone(selected.Id);feedback.Text="Saved · "+selected.Name;Feedback(feedback.Text);}
+            try{ai.SaveMicrophone(selected.Id);feedback.Text=Localization.Text("Saved · ")+selected.Name;Feedback(feedback.Text);}
             catch(Exception ex){Refresh();feedback.Text=ex.Message;Feedback(feedback.Text,true);}
         };
         var actions=new WrapPanel();actions.Children.Add(AssistantWindow.Pill("Test microphone",()=>{selectVoicePage?.Invoke("Audio");testSelectedMicrophone?.Invoke();}));

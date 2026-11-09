@@ -5,7 +5,7 @@ namespace NabyScape;
 
 // Central English base catalog with optional Spanish/Indonesian translations.
 // Missing entries or blank translations deliberately fall back to the English caption.
-internal static class LocalizationCatalog
+internal static partial class LocalizationCatalog
 {
     internal static readonly IReadOnlyDictionary<string, (string Spanish, string Indonesian)> English =
         new Dictionary<string, (string Spanish, string Indonesian)>(StringComparer.Ordinal)

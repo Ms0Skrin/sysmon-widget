@@ -91,7 +91,7 @@ internal sealed partial class AssistantSpeechInstall
         installation=new();removing=true;
         try
         {
-            Report("Uninstalling "+name+"…");
+            Report(Localization.Text("Uninstalling ")+name+"…");
             // Preflight before stopping voice or modifying preferences.
             await Task.Run(()=>{foreach(string path in paths)ValidateRemoval(path);});
             if(releaseVoice!=null)await releaseVoice();
@@ -102,7 +102,7 @@ internal sealed partial class AssistantSpeechInstall
             });
             Report(name+" uninstalled. You can install it again at any time.",100);return true;
         }
-        catch(Exception ex){Report("Could not finish uninstalling "+name+". "+ex.Message+" Check the installed models list and retry.");return false;}
+        catch(Exception ex){Report(Localization.Text("Could not finish uninstalling ")+name+". "+ex.Message+Localization.Text(" Check the installed models list and retry."));return false;}
         finally{removing=false;installation.Dispose();installation=null;if(!disposed)Changed?.Invoke();}
     }
 }

@@ -59,7 +59,7 @@ internal sealed class LyricsSourcesControl : StackPanel
     }
     private void Configure(string source,bool key)
     {
-        bool video=LyricsProviders.NeedsVideo(source);menu.Children.Clear();Heading(source);var status=UI.Text(video?"Paste the YouTube link for this track. Windows media metadata does not contain its video ID.":key?"Save your "+(source=="Musixmatch"?"Musixmatch developer":"PaxSenix")+" API key in Windows Credential Manager.":"This source needs an authorized lyrics connector with a LRCLIB-compatible /api/search endpoint. Native account login is not included.",11,UI.Muted);status.Margin=new(4,0,4,10);menu.Children.Add(status);
+        bool video=LyricsProviders.NeedsVideo(source);menu.Children.Clear();Heading(source);var status=UI.Text(video?"Paste the YouTube link for this track. Windows media metadata does not contain its video ID.":key?Localization.Format("Save your {0} API key in Windows Credential Manager.",Localization.Text(source=="Musixmatch"?"Musixmatch developer":"PaxSenix")):"This source needs an authorized lyrics connector with a LRCLIB-compatible /api/search endpoint. Native account login is not included.",11,UI.Muted);status.Margin=new(4,0,4,10);menu.Children.Add(status);
         var secret=new PasswordBox{MaxLength=2560,Margin=new(4,0,4,8)};var endpoint=UI.Input(video?"YouTube video link":"HTTPS connector base URL","");
         if(key){UI.Named(secret,source+" API key");menu.Children.Add(secret);}else menu.Children.Add(endpoint);
         Row("Save connection","",()=>

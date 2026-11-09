@@ -66,9 +66,9 @@ internal sealed class PowerPlanView : StackPanel
     private async Task Apply()
     {
         if(lifetime==null || choices.SelectedItem is not PowerPlan selected)return;Busy(true);
-        try{await Run("/setactive "+selected.Id.ToString("D"),lifetime.Token);if(lifetime.IsCancellationRequested)return;await Refresh();status.Text="Applied · "+selected.Name;}
+        try{await Run("/setactive "+selected.Id.ToString("D"),lifetime.Token);if(lifetime.IsCancellationRequested)return;await Refresh();status.Text=Localization.Text("Applied · ")+selected.Name;}
         catch(OperationCanceledException){if(!lifetime.IsCancellationRequested)status.Text="Change timed out. Refresh to check the active plan.";}
-        catch(Exception ex){if(!lifetime.IsCancellationRequested)status.Text="Not applied · "+ex.Message;}
+        catch(Exception ex){if(!lifetime.IsCancellationRequested)status.Text=Localization.Text("Not applied · ")+ex.Message;}
         finally{Busy(false);}
     }
 }

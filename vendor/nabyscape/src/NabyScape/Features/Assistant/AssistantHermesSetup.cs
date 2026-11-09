@@ -59,7 +59,7 @@ internal sealed partial class AssistantProviderSettings
                 string typed=agent.Text.Trim();agent.ItemsSource=models;agent.Text=models.Contains(typed)?typed:models.Length==1?models[0]:"";result.Text=$"Server available · {models.Length} agent(s). Choose one, then Connect & use Hermes. No chat or tool task was started.";return true;
             }
             catch(OperationCanceledException){result.Text="Connection check stopped or timed out. Check the gateway address and whether Hermes is running.";return false;}
-            catch(Exception ex){result.Text="Could not connect: "+ex.Message;return false;}
+            catch(Exception ex){result.Text=Localization.Text("Could not connect: ")+ex.Message;return false;}
             finally{pending?.Dispose();pending=null;check.IsEnabled=connect.IsEnabled=address.IsEnabled=profile.IsEnabled=secret.IsEnabled=agent.IsEnabled=true;}
         }
         check.Click+=async(_,_)=>await Check();connect.Click+=async(_,_)=>
@@ -80,7 +80,7 @@ internal sealed partial class AssistantProviderSettings
                 }
                 ai.Options.Enabled=true;app.Store.Save("assistant",ai.Options);secret.Clear();Reload(candidate.Id);RefreshEnabled();Feedback("Hermes connection saved · selected for chat.");result.Text="Hermes selected for chat. Return to Naby to start. For spoken replies, choose a local speech pack in Voice setup.";app.Notify("Hermes connected","Your agent is selected for Naby chat.");
             }
-            catch(Exception ex){result.Text="Could not save Hermes connection: "+ex.Message;Feedback(result.Text,true);}
+            catch(Exception ex){result.Text=Localization.Text("Could not save Hermes connection: ")+ex.Message;Feedback(result.Text,true);}
         };
         p.Unloaded+=(_,_)=>{pending?.Cancel();secret.Clear();};hermesSetup=new Expander{Header="Connect Hermes · guided setup",Content=p,Margin=new(0,12,0,10)};return hermesSetup;
     }

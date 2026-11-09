@@ -102,7 +102,7 @@ internal sealed partial class AssistantSpeechInstall : IDisposable
             Report("Installed and verified. Choose Use installed pack to enable it.",100);return true;
         }
         catch(OperationCanceledException){Report("Installation cancelled. Completed verified downloads are kept; choose Install & use to retry.");return false;}
-        catch(Exception ex){Report("Installation failed: "+(ex is HttpRequestException?"Check your internet connection and retry. "+ex.Message:ex.Message));return false;}
+        catch(Exception ex){Report(Localization.Text("Installation failed: ")+(ex is HttpRequestException?"Check your internet connection and retry. "+ex.Message:ex.Message));return false;}
         finally{installation.Dispose();installation=null;if(!disposed)Changed?.Invoke();}
     }
     private Task WriteSources(CancellationToken token)=>File.WriteAllTextAsync(Path.Combine(root,"SOURCES.txt"),"Optional speech components downloaded by NabyScape:\nWhisper.cpp v1.8.7 (MIT): https://github.com/ggml-org/whisper.cpp/tree/v1.8.7\nWhisper weights (MIT): https://huggingface.co/ggerganov/whisper.cpp\nPiper native engine 2023.11.14-2 (MIT): https://github.com/rhasspy/piper/tree/2023.11.14-2\nPiper uses eSpeak NG (GPL): https://github.com/espeak-ng/espeak-ng and ONNX Runtime (MIT): https://github.com/microsoft/onnxruntime\nPiper voice terms and dataset attribution: see each .MODEL_CARD beside the voice file.\nSherpa-ONNX v1.13.8 (Apache-2.0): https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8\nQwen3-ASR (Apache-2.0): https://github.com/QwenLM/Qwen3-ASR\nKokoro v1.1 (Apache-2.0): https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh\nMoonshine v2: https://huggingface.co/UsefulSensors (see bundled LICENSE)\nQwen3-ASR 1.7B community ONNX conversion: https://huggingface.co/thieunv-asilla/sherpa-onnx-qwen3-asr-1.7B-int8\nKittenTTS nano v0.8 (Apache-2.0): https://huggingface.co/KittenML/kitten-tts-nano-0.8-int8\nSupertonic 3 (OpenRAIL-M model): https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE\nSherpa packages include ONNX Runtime and eSpeak NG components; see their bundled license notices.\nNVIDIA CUDA runtime terms: https://docs.nvidia.com/cuda/eula/index.html\nMicrosoft Visual C++ runtime terms: https://aka.ms/VisualStudioRedistribution\n",token);
@@ -134,7 +134,7 @@ internal sealed partial class AssistantSpeechInstall : IDisposable
             await WriteSources(token);token.ThrowIfCancellationRequested();Report("Engines ready. Your model files remain in their original location.",100);return true;
         }
         catch(OperationCanceledException){Report("Setup cancelled. Your model files were not changed.");return false;}
-        catch(Exception ex){Report("Model setup failed: "+ex.Message);return false;}
+        catch(Exception ex){Report(Localization.Text("Model setup failed: ")+ex.Message);return false;}
         finally{installation.Dispose();installation=null;if(!disposed)Changed?.Invoke();}
     }
     internal static bool CppRuntimePresent()
@@ -169,7 +169,7 @@ internal sealed partial class AssistantSpeechInstall : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         if(HasFile(target,asset.Bytes))
         {
-            Report("Verifying "+title+"…");await using var existing=File.OpenRead(target);var hash=await SHA256.HashDataAsync(existing,token);if(Convert.ToHexString(hash).Equals(asset.Sha256,StringComparison.OrdinalIgnoreCase))return;
+            Report(Localization.Text("Verifying ")+title+"…");await using var existing=File.OpenRead(target);var hash=await SHA256.HashDataAsync(existing,token);if(Convert.ToHexString(hash).Equals(asset.Sha256,StringComparison.OrdinalIgnoreCase))return;
         }
         string partial=target+".partial";
         try
@@ -219,7 +219,7 @@ internal sealed partial class AssistantSpeechInstall : IDisposable
         if(Ready(folder,executable))return;
         bool tar=asset.Url.EndsWith(".tar.bz2",StringComparison.OrdinalIgnoreCase);
         string archive=Path.Combine(root,"downloads",Path.GetFileName(folder)+(tar?".tar.bz2":".zip"));await Download(asset,archive,title,token);
-        Report("Installing "+title+"…");string staging=folder+".staging-"+Guid.NewGuid().ToString("N");
+        Report(Localization.Text("Installing ")+title+"…");string staging=folder+".staging-"+Guid.NewGuid().ToString("N");
         try
         {
             await Task.Run(()=>

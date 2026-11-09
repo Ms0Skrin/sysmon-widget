@@ -23,7 +23,7 @@ internal static class UI
     public static readonly Brush Muted=Brush("#A6ABB4");
     public static TextBlock Text(string text,double size=13,Brush? color=null)
     {
-        var label=new TextBlock{Text=text,FontSize=size,Foreground=color ?? Brush("#F2F3F5"),VerticalAlignment=VerticalAlignment.Center,TextWrapping=TextWrapping.Wrap};
+        var label=new TextBlock{Text=Localization.Message(text),FontSize=size,Foreground=color ?? Brush("#F2F3F5"),VerticalAlignment=VerticalAlignment.Center,TextWrapping=TextWrapping.Wrap};
         if(Accessibility.TextScale!=1 || Accessibility.HighContrast)label.Loaded+=ApplyCaptionOnLoad;
         return label;
     }
@@ -45,7 +45,7 @@ internal static class UI
     {var heading=Heading(text,11,Muted);heading.FontWeight=FontWeights.Medium;heading.Margin=new(0,0,0,10);return heading;}
     public static Button Button(string text,Action action,bool primary=false)
     {
-        var b=new Button{Content=text,Tag=new CornerRadius(8)};AutomationProperties.SetName(b,text);
+        var b=new Button{Content=Localization.Message(text),Tag=new CornerRadius(8)};AutomationProperties.SetName(b,Localization.Message(text));
         if(primary) { b.SetResourceReference(Control.BackgroundProperty,"Accent");b.Foreground=Accessibility.HighContrast?SystemColors.HighlightTextBrush:Brushes.Black;b.FontWeight=FontWeights.SemiBold;b.BorderThickness=new(0); }
         Motion.Button(b);b.Click+=(_,_)=>action();return b;
     }
@@ -58,7 +58,7 @@ internal static class UI
         card.SetResourceReference(Border.BackgroundProperty,"ControlFill");card.SetResourceReference(Border.BorderBrushProperty,"ControlBorder");return card;
     }
     public static TextBox Input(string name,string text,string? tooltip=null)
-    { var t=new TextBox{Text=text,ToolTip=tooltip};AutomationProperties.SetName(t,name);return t; }
-    public static void Named(DependencyObject control,string name)=>AutomationProperties.SetName(control,name);
+    { var t=new TextBox{Text=text,ToolTip=tooltip==null?null:Localization.Text(tooltip)};AutomationProperties.SetName(t,Localization.Text(name));return t; }
+    public static void Named(DependencyObject control,string name)=>AutomationProperties.SetName(control,Localization.Message(name));
     public static ScrollViewer Scroll(UIElement content)=>new(){Content=content,Padding=new(0)};
 }

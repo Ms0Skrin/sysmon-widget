@@ -22,7 +22,7 @@ internal sealed class LyricsSearchWindow : Window
         for(int i=0;i<sources.Length;i++)
         {
             int selected=i;var labels=new StackPanel();labels.Children.Add(UI.Text(sources[i],14));labels.Children.Add(UI.Text(i==selectedSource && app.Lyrics.Result.Lines.Length>0?"Current provider":i==2?"Enter your server URL":"Tap to fetch",11,UI.Muted));
-            var row=new RadioButton{Content=labels,GroupName="LyricsProviders",IsChecked=i==selectedSource,Padding=new(12),Margin=new(0,8,0,0),HorizontalContentAlignment=HorizontalAlignment.Stretch};UI.Named(row,"Fetch lyrics from "+sources[i]);
+            var row=new RadioButton{Content=labels,GroupName="LyricsProviders",IsChecked=i==selectedSource,Padding=new(12),Margin=new(0,8,0,0),HorizontalContentAlignment=HorizontalAlignment.Stretch};UI.Named(row,Localization.Text("Fetch lyrics from ")+sources[i]);
             row.Click+=(_,_)=>{selectedSource=selected;endpoint.Visibility=selected==2?Visibility.Visible:Visibility.Collapsed;if(selected!=2)search?.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));};panel.Children.Add(row);
         }
         panel.Children.Add(endpoint);
@@ -42,7 +42,7 @@ internal sealed class LyricsSearchWindow : Window
                 status.Text=choices.Length==0?"No synced results. Try a shorter title, another artist spelling, or Local LRC.":$"{choices.Length} synced versions · select one to apply";
                 foreach(var choice in choices)
                 {
-                    string label=choice.Title+" · "+choice.Artist+"\n"+choice.Album+$" · {choice.Duration:0}s";
+                    string label=choice.Title+" · "+choice.Artist+"\n"+choice.Album+Localization.Format(" · {0}s",choice.Duration.ToString("0"));
                     var select=UI.Button(label,()=>
                     {
                         if(app.Media.Title!=title || app.Media.Artist!=artist || Math.Round(app.Media.Timeline().duration)!=Math.Round(duration)){status.Text="The track changed. Reopen Find lyrics for the current song.";return;}
@@ -52,7 +52,7 @@ internal sealed class LyricsSearchWindow : Window
                 }
             }
             catch(OperationCanceledException){if(!lifetime.IsCancellationRequested)status.Text="Search timed out. Try again.";}
-            catch(Exception ex){if(!lifetime.IsCancellationRequested)status.Text="Could not search: "+ex.Message;}
+            catch(Exception ex){if(!lifetime.IsCancellationRequested)status.Text=Localization.Text("Could not search: ")+ex.Message;}
             finally{if(!lifetime.IsCancellationRequested){search!.IsEnabled=true;foreach(var row in panel.Children){if(row is RadioButton radio)radio.IsEnabled=true;}}}
         });
         panel.Children.Add(search);panel.Children.Add(status);panel.Children.Add(results);

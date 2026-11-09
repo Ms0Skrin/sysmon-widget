@@ -43,8 +43,8 @@ internal sealed class DockPositionEditor : UserControl
         vertical.IsEnabled=!(s.Preset=="Mac" && s.DockEdge=="Top");
         double left=(screen.WorkingArea.Width/scale-s.Width)*s.Horizontal/100,top=side?(height-s.Height)*s.DockVertical/100:bottom?height-s.Height-s.DockInset:s.Top;
         if(side)left=s.DockEdge=="Left"?s.DockInset:screen.WorkingArea.Width/scale-s.Width-s.DockInset;
-        double off=side?s.DockVertical-50:s.Horizontal-50;alignment.Text=Math.Abs(off)<.05?"Centered on this screen":$"{Math.Abs(off):0.#}% {(side?(off<0?"above":"below"):(off<0?"left of":"right of"))} center";alignment.Foreground=Math.Abs(off)<.05?UI.Brush("#A4CEC0"):UI.Muted;
-        coordinates.Text=$"Left {left:0} px · Top {top:0} px · {scale*100:0}% display scaling";syncing=false;Draw();
+        double off=side?s.DockVertical-50:s.Horizontal-50;alignment.Text=Math.Abs(off)<.05?Localization.Text("Centered on this screen"):Localization.Format(side?(off<0?"{0}% above center":"{0}% below center"):(off<0?"{0}% left of center":"{0}% right of center"),Math.Abs(off).ToString("0.#"));alignment.Foreground=Math.Abs(off)<.05?UI.Brush("#A4CEC0"):UI.Muted;
+        coordinates.Text=Localization.Format("Left {0} px · Top {1} px · {2}% display scaling",left.ToString("0"),top.ToString("0"),(scale*100).ToString("0"));syncing=false;Draw();
     }
     private void Drag(Point point)
     {

@@ -27,8 +27,8 @@ public sealed partial class OverlayWindow
         RefreshCompactOptionalVisibility();
         if(awakeStatus!=null)
         {
-            string detail=app.Awake.Until.HasValue?$"{Math.Max(0,Math.Ceiling((app.Awake.Until.Value-now).TotalMinutes)):0} min remaining":"Until NabyScape quits";
-            awakeStatus.Text=app.Awake.Active?$"Awake · {detail}\n"+(app.Awake.KeepDisplayOn?"Display stays on":"Display can turn off"):"Off · Windows power settings apply";
+            string detail=app.Awake.Until.HasValue?Localization.Format("{0} min remaining",Math.Max(0,Math.Ceiling((app.Awake.Until.Value-now).TotalMinutes)).ToString("0")):Localization.Text("Until NabyScape quits");
+            awakeStatus.Text=app.Awake.Active?Localization.Format("Awake · {0}",detail)+"\n"+Localization.Text(app.Awake.KeepDisplayOn?"Display stays on":"Display can turn off"):Localization.Text("Off · Windows power settings apply");
         }
     }
     private void ResizeToolPanel()
@@ -99,7 +99,7 @@ public sealed partial class OverlayWindow
         var status=UI.Text("",11,UI.Muted);status.Margin=new(0,8,0,8);panel.Children.Add(status);
         var result=UI.Input("Cleaned link","");result.IsReadOnly=true;result.TextWrapping=TextWrapping.Wrap;result.Height=44;result.Padding=new(10,3,10,3);result.Margin=new(0,0,0,4);result.VerticalScrollBarVisibility=ScrollBarVisibility.Auto;panel.Children.Add(result);
         var copy=UI.Button("Copy cleaned link",()=>{try{Clipboard.SetText(result.Text);status.Text="Copied cleaned link.";}catch(Exception ex){app.Store.Log(ex);status.Text="Could not copy. Try again.";}finally{ResizeToolPanel();}},true);copy.IsEnabled=false;panel.Children.Add(copy);
-        input.TextChanged+=(_,_)=>{try{if(string.IsNullOrWhiteSpace(input.Text)){result.Text="";status.Text="";copy.IsEnabled=false;return;}result.Text=CleanLink.Clean(input.Text);copy.IsEnabled=true;status.Text=result.Text==input.Text.Trim()?"Unchanged · already clean or signature protected":"Tracking parameters removed · check the result below";}catch(ArgumentException){result.Text="";copy.IsEnabled=false;status.Text=$"Enter a complete HTTP or HTTPS URL without credentials (up to {input.MaxLength} characters).";}finally{ResizeToolPanel();}};
+        input.TextChanged+=(_,_)=>{try{if(string.IsNullOrWhiteSpace(input.Text)){result.Text="";status.Text="";copy.IsEnabled=false;return;}result.Text=CleanLink.Clean(input.Text);copy.IsEnabled=true;status.Text=result.Text==input.Text.Trim()?"Unchanged · already clean or signature protected":"Tracking parameters removed · check the result below";}catch(ArgumentException){result.Text="";copy.IsEnabled=false;status.Text=Localization.Format("Enter a complete HTTP or HTTPS URL without credentials (up to {0} characters).",input.MaxLength);}finally{ResizeToolPanel();}};
     }
     private void BuildCalendar(StackPanel panel)
     {

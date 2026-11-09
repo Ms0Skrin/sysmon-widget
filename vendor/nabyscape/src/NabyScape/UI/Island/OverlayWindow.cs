@@ -178,7 +178,7 @@ public sealed partial class OverlayWindow : Window
                 case "shortcuts":
                     var shortcuts=new WrapPanel();foreach(var shortcut in app.Settings.Shortcuts){var button=LaunchButton(shortcut);shortcuts.Children.Add(button);}card=UI.Card("Quick launch",UI.Button("Search commands  ·  Ctrl+K",()=>ShowCommands()),shortcuts);break;
                 case "tools":card=UI.Card("Tools",BuildToolsPage());break;
-                default:if(Settings.ToolNames.ContainsKey(widget.Id)){string toolId=widget.Id;card=UI.Card(Settings.ToolNames[toolId],UI.Button("Open "+Settings.ToolNames[toolId],()=>ShowTools(toolId)));}else continue;break;
+                default:if(Settings.ToolNames.ContainsKey(widget.Id)){string toolId=widget.Id;card=UI.Card(Settings.ToolNames[toolId],UI.Button(Localization.Text("Open ")+Settings.ToolNames[toolId],()=>ShowTools(toolId)));}else continue;break;
             }
             card.Width=small?half:full;card.Margin=new(0,0,small?10:0,10);
             if(small)card.MinHeight=widget.Id is "timer" or "focus"?184:120;
@@ -294,7 +294,7 @@ public sealed partial class OverlayWindow : Window
             if((sessionsChanged || sessionLayoutChanged) && app.Settings.CompactLayout){Dimensions();motion.Go(surface,IslandSurface.SurfaceHeightProperty,expandedHeight,Math.Min(300,app.Settings.AnimationMs));motion.OnComplete(()=>{});}
             }
             clock.Text=now.ToString(app.Settings.Clock24Hour?(app.Settings.ClockSeconds?"HH:mm:ss":"HH:mm"):(app.Settings.ClockSeconds?"h:mm:ss tt":"h:mm tt"));date.Visibility=app.Settings.ShowDate?Visibility.Visible:Visibility.Collapsed;date.Text=now.ToString("ddd, dd MMM",System.Globalization.CultureInfo.GetCultureInfo("en-US"));
-            if((change&(RuntimeChange.System|RuntimeChange.Settings))!=0){cpu.Text=$"CPU  {app.Usage.cpu:0}%";ram.Text=$"RAM  {app.Usage.used:0.0}/{app.Usage.total:0.0} GB";Motion.Progress(cpuBar,app.Usage.cpu);Motion.Progress(ramBar,app.Usage.total>0?app.Usage.used/app.Usage.total*100:0);}
+            if((change&(RuntimeChange.System|RuntimeChange.Settings))!=0){cpu.Text=Localization.Format("CPU  {0}%",app.Usage.cpu.ToString("0"));ram.Text=Localization.Format("RAM  {0}/{1} GB",app.Usage.used.ToString("0.0"),app.Usage.total.ToString("0.0"));Motion.Progress(cpuBar,app.Usage.cpu);Motion.Progress(ramBar,app.Usage.total>0?app.Usage.used/app.Usage.total*100:0);}
             if(!volume.IsMouseCaptureWithin && !volume.IsKeyboardFocusWithin)volume.Value=app.Audio.Volume*100;volume.IsEnabled=app.Audio.Available;volumeText.Text=app.Audio.Available?$"{app.Audio.Volume*100:0}%":"—";volume.ToolTip=app.Audio.Device;
             var currentMute=app.Audio.Muted?"muted":"volume";if(mute!=null && muteIcon!=currentMute){muteIcon=currentMute;mute.Content=Icons.Create(currentMute,18);}
             var power=Forms.SystemInformation.PowerStatus;bool hasBattery=(power.BatteryChargeStatus & Forms.BatteryChargeStatus.NoSystemBattery)==0 && power.BatteryChargeStatus!=Forms.BatteryChargeStatus.Unknown;if(batteryCard!=null)batteryCard.Visibility=hasBattery?Visibility.Visible:Visibility.Collapsed;battery.Text=$"{power.BatteryLifePercent*100:0}% · "+(power.PowerLineStatus==Forms.PowerLineStatus.Online?"Charging":"Battery");

@@ -78,9 +78,9 @@ public sealed partial class SettingsWindow
         var from=new StackPanel{Margin=new(0,0,6,0)};from.Children.Add(UI.Text("From · local time",11,UI.Muted));from.Children.Add(PremiumChoice("Quiet hours start",hours[s.QuietStart],hours,v=>s.QuietStart=Array.IndexOf(hours,v)));
         var to=new StackPanel{Margin=new(6,0,0,0)};to.Children.Add(UI.Text("Until",11,UI.Muted));to.Children.Add(PremiumChoice("Quiet hours end",hours[s.QuietEnd],hours,v=>s.QuietEnd=Array.IndexOf(hours,v)));Grid.SetColumn(to,1);schedule.Children.Add(from);schedule.Children.Add(to);controls.Children.Add(schedule);
         controls.Children.Add(UI.Text("Quiet hours silence Naby notifications and completion sounds. A matching start and end disables the schedule. Windows notifications from other apps are unaffected.",11,UI.Muted));
-        var snoozeStatus=UI.Text("",11,UI.Muted);void Status()=>snoozeStatus.Text=s.NotificationsSnoozedUntil is {} until && until>DateTimeOffset.UtcNow?"Snoozed until "+until.ToLocalTime().ToString("HH:mm"):"Notifications are not snoozed.";Status();controls.Children.Add(snoozeStatus);
+        var snoozeStatus=UI.Text("",11,UI.Muted);void Status()=>snoozeStatus.Text=s.NotificationsSnoozedUntil is {} until && until>DateTimeOffset.UtcNow?Localization.Text("Snoozed until ")+until.ToLocalTime().ToString("HH:mm"):"Notifications are not snoozed.";Status();controls.Children.Add(snoozeStatus);
         var actions=new WrapPanel();
-        foreach(int minutes in new[]{15,30,60})actions.Children.Add(UI.Button("Snooze "+minutes+" min",()=>{s.NotificationsSnoozedUntil=DateTimeOffset.UtcNow.AddMinutes(minutes);app.Notifications.Clear();Save();Status();}));
+        foreach(int minutes in new[]{15,30,60})actions.Children.Add(UI.Button(Localization.Format("Snooze {0} min",minutes),()=>{s.NotificationsSnoozedUntil=DateTimeOffset.UtcNow.AddMinutes(minutes);app.Notifications.Clear();Save();Status();}));
         actions.Children.Add(UI.Button("Resume notifications",()=>{s.NotificationsSnoozedUntil=null;Save();Status();}));controls.Children.Add(actions);
         controls.Children.Add(UI.Text("Snooze ends automatically. It does not stop Timer or Focus. Resume removes the snooze; any scheduled quiet hours still apply.",11,UI.Muted));
         page.Children.Add(Section("Notification presentation",controls));

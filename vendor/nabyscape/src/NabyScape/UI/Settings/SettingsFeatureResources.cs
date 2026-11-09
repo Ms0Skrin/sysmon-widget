@@ -6,11 +6,11 @@ namespace NabyScape;
 public sealed partial class SettingsWindow
 {
     private TextBlock? featureUsageSummary;
-    private void RefreshFeatureUsage(){if(featureUsageSummary!=null)featureUsageSummary.Text=app.Settings.Widgets.Count(w=>w.Enabled)+" widgets enabled · choose only what you use";}
+    private void RefreshFeatureUsage(){if(featureUsageSummary!=null)featureUsageSummary.Text=Localization.Format("{0} widgets enabled · choose only what you use",app.Settings.Widgets.Count(w=>w.Enabled));}
     private void FeatureResourceSettings()
     {
         var s=app.Settings;var body=new StackPanel();
-        var summary=UI.Text(s.Widgets.Count(w=>w.Enabled)+" widgets enabled · choose only what you use",14);featureUsageSummary=summary;body.Children.Add(summary);
+        var summary=UI.Text(Localization.Format("{0} widgets enabled · choose only what you use",s.Widgets.Count(w=>w.Enabled)),14);featureUsageSummary=summary;body.Children.Add(summary);
         var actions=new WrapPanel{Margin=new(0,10,0,8)};
         actions.Children.Add(UI.CaptionButton("Use essentials",()=>
         {

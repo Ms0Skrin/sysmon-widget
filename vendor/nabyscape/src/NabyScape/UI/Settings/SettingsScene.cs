@@ -17,7 +17,7 @@ internal sealed class SettingsScene : FrameworkElement
     internal sealed record WidgetTile(Rect Bounds,FormattedText Label);
     internal static WidgetTile[] WidgetTiles(Settings settings,double pixelsPerDip=1)
     {
-        var labels=settings.Widgets.Where(widget=>widget.Enabled).Select(widget=>new FormattedText(Settings.Names[widget.Id],CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),10,UI.Brush("#F3F4F6"),pixelsPerDip){MaxTextWidth=60,Trimming=TextTrimming.None}).ToArray();
+        var labels=settings.Widgets.Where(widget=>widget.Enabled).Select(widget=>new FormattedText(Localization.Text(Settings.Names[widget.Id]),CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),10,UI.Brush("#F3F4F6"),pixelsPerDip){MaxTextWidth=60,Trimming=TextTrimming.None}).ToArray();
         var result=new WidgetTile[labels.Length];double y=15;
         for(int row=0;row<labels.Length;row+=5)
         {
@@ -41,7 +41,7 @@ internal sealed class SettingsScene : FrameworkElement
         var white=UI.Brush("#F2F3F5");var muted=UI.Brush("#ADB3BD");var fill=UI.Brush("#24272D");var line=new Pen(UI.Brush("#626874"),1);var edge=new Pen(UI.Brush("#16FFFFFF"),.75);edge.Freeze();
         void Box(double x,double y,double w,double h,Brush? brush=null,double r=8)=>dc.DrawRoundedRectangle(brush??fill,w>=28 && h>=22?edge:null,new Rect(x,y,w,h),r,r);
         void Text(string value,double x,double y,double size=12,bool bold=false,Brush? brush=null,double maxWidth=400)
-        {var t=new FormattedText(value,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface(new FontFamily("Segoe UI"),FontStyles.Normal,bold?FontWeights.SemiBold:FontWeights.Normal,FontStretches.Normal),size,brush??white,VisualTreeHelper.GetDpi(this).PixelsPerDip){MaxTextWidth=Math.Max(10,Math.Min(maxWidth,405-x)),MaxTextHeight=42,Trimming=TextTrimming.CharacterEllipsis};dc.DrawText(t,new Point(x,y));}
+        {var t=new FormattedText(Localization.Text(value),CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface(new FontFamily("Segoe UI"),FontStyles.Normal,bold?FontWeights.SemiBold:FontWeights.Normal,FontStretches.Normal),size,brush??white,VisualTreeHelper.GetDpi(this).PixelsPerDip){MaxTextWidth=Math.Max(10,Math.Min(maxWidth,405-x)),MaxTextHeight=42,Trimming=TextTrimming.CharacterEllipsis};dc.DrawText(t,new Point(x,y));}
         void Line(double x,double y,double xx,double yy)=>dc.DrawLine(line,new Point(x,y),new Point(xx,yy));
         void Toggle(double x,double y,bool on){Box(x,y,30,16,on?white:fill,8);dc.DrawEllipse(on?fill:muted,null,new Point(x+(on?22:8),y+8),5,5);}
         void Bar(double x,double y,double w,double value){Box(x,y,w,3,fill,1);Box(x,y,Math.Max(1,w*Math.Clamp(value,0,1)),3,white,1);}
@@ -67,43 +67,43 @@ internal sealed class SettingsScene : FrameworkElement
         switch(kind)
         {
             case "Feature usage":
-                Text("Choose what runs",24,18,18,true);Text(s.Widgets.Count(w=>w.Enabled)+" enabled widgets",24,51,12);Note("Essentials or Custom · background switches stay explicit");break;
+                Text("Choose what runs",24,18,18,true);Text(Localization.Count(s.Widgets.Count(w=>w.Enabled),"enabled widget","enabled widgets"),24,51,12);Note("Essentials or Custom · background switches stay explicit");break;
             case "Your setup":
                 Text("Your next step",24,18,18,true);Text("Music · AI · Voice · Lyrics · Weather",24,51,12);Note("Saved settings and verified connections have distinct statuses");break;
             case "AI companion":
                 dc.DrawEllipse(UI.Brush("#23262D"),new Pen(UI.Brush("#777D88"),1),new Point(53,51),24,24);dc.DrawRoundedRectangle(white,null,new Rect(42,37,7,16),3.5,3.5);dc.DrawRoundedRectangle(white,null,new Rect(57,37,7,16),3.5,3.5);Text("Connect your AI",94,24,15,true);Text("Provider → model → chat / voice",94,51,12);Keys("Local key",298,23,95);Note("Optional · keys in Windows Credential Manager · session capture controls");break;
             case "Shape":
-                Silhouette(28,22,160,36,true);Silhouette(228,22,160,36,false);Text("Notch · attached to edge",30,69,11);Text("Pill · floating",230,69,11);Note("Current: "+(s.Preset=="Mac"?"Notch":"Pill"));break;
+                Silhouette(28,22,160,36,true);Silhouette(228,22,160,36,false);Text("Notch · attached to edge",30,69,11);Text("Pill · floating",230,69,11);Note(Localization.Text("Current: ")+Localization.Text(s.Preset=="Mac"?"Notch":"Pill"));break;
             case "Settings material":
                 Box(22,18,168,65,IslandSurface.GlassMaterial);Text("Settings window",34,31,13,true);Text(SettingsBackdrop.Requested(s),34,55,11);Text("Island stays independent",210,32,11);Note("Schematic only - actual status appears below");break;
             case "Color & material":
-                Box(22,19,216,68,UI.Brush(s.Background));Box(36,33,34,34,UI.Brush(s.Accent));Text("Song title",82,34,14,true,UI.ContrastText(s.Background));Text(s.GlassStyle?"Black glass":"Solid surface",82,57,11,false,UI.ContrastText(s.Background));Text($"Opacity {s.Opacity*100:0}%",256,28);Text($"Glass {s.GlassStrength*100:0}%",256,52);Note("Your island color and material");break;
+                Box(22,19,216,68,UI.Brush(s.Background));Box(36,33,34,34,UI.Brush(s.Accent));Text("Song title",82,34,14,true,UI.ContrastText(s.Background));Text(s.GlassStyle?"Black glass":"Solid surface",82,57,11,false,UI.ContrastText(s.Background));Text(Localization.Format("Opacity {0}%",(s.Opacity*100).ToString("0")),256,28);Text(Localization.Format("Glass {0}%",(s.GlassStrength*100).ToString("0")),256,52);Note("Your island color and material");break;
             case "Surface":
                 var glass=new LinearGradientBrush(UI.Brush(s.Background).Color,UI.Brush("#3E424A").Color,90){Opacity=.25+s.GlassStrength*.6};
-                Box(24,18,176,61,Brushes.Black);Box(224,18,176,61,glass);Text("Solid",39,38,14,true);Text("Glass",240,38,14,true);Note($"Glass intensity {s.GlassStrength*100:0}% · black glass {(s.GlassStyle?"on":"off")}");break;
+                Box(24,18,176,61,Brushes.Black);Box(224,18,176,61,glass);Text("Solid",39,38,14,true);Text("Glass",240,38,14,true);Note(Localization.Format("Glass intensity {0}% · black glass {1}",(s.GlassStrength*100).ToString("0"),Localization.Text(s.GlassStyle?"on":"off")));break;
             case "Controls & outlines":
                 Box(18,24,112,34,UI.Brush(s.ControlFill));Text("Button",36,33,12,false,UI.ContrastText(s.ControlFill));dc.DrawRoundedRectangle(null,new Pen(UI.Brush(s.ControlBorder),1),new Rect(146,24,122,34),6,6);Text("Input field",158,33);Box(284,24,116,34,UI.Brush(s.SelectionFill));Text("Selected tab",296,33,12,false,UI.ContrastText(s.SelectionFill));Note("Button fill · input outline · selected state");break;
             case "Typography":
                 Text("Song title",24,23,21,s.BoldMediaTitle);Text("Artist name",24,54,12,false,muted);Text("Panel heading",232,27,16,s.BoldHeadings);Text("Body text stays regular",232,56,11,false,muted);Note("Current title weights; body text stays the same");break;
             case "Text and navigation":
-                foreach(var item in new[]{("Media",22d),("Focus",112d),("Status",202d),("Tools",292d)}){Box(item.Item2,22,76,46);if(s.CategoryStyle=="Dots"){dc.DrawEllipse(white,null,new Point(item.Item2+38,44),3,3);continue;}if(s.CategoryStyle!="Text")dc.DrawEllipse(null,new Pen(white,1.4),new Point(item.Item2+38,36),6,6);if(s.CategoryStyle!="Icons")Text(item.Item1,item.Item2+14,s.CategoryStyle=="Text"?38:49,11);}Note("Navigation · "+s.CategoryStyle.Replace("IconsLabels","Icons + labels"));break;
+                foreach(var item in new[]{("Media",22d),("Focus",112d),("Status",202d),("Tools",292d)}){Box(item.Item2,22,76,46);if(s.CategoryStyle=="Dots"){dc.DrawEllipse(white,null,new Point(item.Item2+38,44),3,3);continue;}if(s.CategoryStyle!="Text")dc.DrawEllipse(null,new Pen(white,1.4),new Point(item.Item2+38,36),6,6);if(s.CategoryStyle!="Icons")Text(item.Item1,item.Item2+14,s.CategoryStyle=="Text"?38:49,11);}Note(Localization.Text("Navigation · ")+Localization.Text(s.CategoryStyle.Replace("IconsLabels","Icons + labels")));break;
             case "Motion":
-                Box(23,28,68,22,Brushes.Black);Text("Music",34,33,9);Line(108,40,176,40);Box(193,16,135,63,Brushes.Black);Cover(203,25,22);Text("Song title",234,28,10,true);Bar(204,65,112,.4);Text(s.ReduceMotion?"Instant state change":$"{s.AnimationMs:0} ms transition",23,78,11);Text("Closed → open",193,87,11,false,muted);break;
+                Box(23,28,68,22,Brushes.Black);Text("Music",34,33,9);Line(108,40,176,40);Box(193,16,135,63,Brushes.Black);Cover(203,25,22);Text("Song title",234,28,10,true);Bar(204,65,112,.4);Text(s.ReduceMotion?"Instant state change":Localization.Format("{0} ms transition",s.AnimationMs.ToString("0")),23,78,11);Text("Closed → open",193,87,11,false,muted);break;
             case "Animation performance":
                 Text("Eco",24,16,12,true);Text("Auto",24,42,12,true);Text("Maximum",24,68,12,true);for(int row=0;row<3;row++)for(int i=0;i<(row+1)*8;i++)Box(120+i*10,20+row*26,3,12,white,1);Note("Illustrative update cadence · your display sets the visible limit");break;
             case "Dock placement":
                 Box(110,12,205,76,UI.Brush("#14171D"),7);dc.DrawRoundedRectangle(null,line,new Rect(110,12,205,76),7,7);
                 var marker=s.DockEdge switch{"Left"=>new Rect(111,36,10,30),"Right"=>new Rect(304,36,10,30),"Bottom"=>new Rect(182,77,62,9),"Floating"=>new Rect(182,45,62,12),_=>new Rect(182,14,62,9)};
-                dc.DrawRoundedRectangle(white,null,marker,4,4);Note(s.DockEdge+" · "+s.DockInset.ToString("0")+" px inset · panels remain upright");break;
+                dc.DrawRoundedRectangle(white,null,marker,4,4);Note(Localization.Text(s.DockEdge)+" · "+s.DockInset.ToString("0")+Localization.Text(" px inset · panels remain upright"));break;
             case "Display":
                 dc.DrawRoundedRectangle(null,line,new Rect(24,17,166,67),5,5);dc.DrawRoundedRectangle(null,line,new Rect(220,17,166,67),5,5);Box(s.DisplayMode is "Follow" or "Selected"?266:70,18,76,12,white,3);if(s.DisplayMode=="Follow"){Line(318,39,332,48);Line(318,39,321,54);Text("250 ms",242,39,10);}
-                Text("Primary display",50,66,11);Text("Other display",250,66,11);Note(s.DisplayMode=="Follow"?"Follow cursor · move after 250 ms · waits during interaction":s.DisplayMode=="Selected"?"Selected display: "+s.Monitor:"Primary display");break;
+                Text("Primary display",50,66,11);Text("Other display",250,66,11);Note(s.DisplayMode=="Follow"?"Follow cursor · move after 250 ms · waits during interaction":s.DisplayMode=="Selected"?Localization.Text("Selected display: ")+s.Monitor:"Primary display");break;
             case "Closed island":
-                Island(90,18,240,34);Line(90,69,330,69);Line(90,63,90,75);Line(330,63,330,75);Text($"{s.Width:0} × {s.Height:0} px · radius {s.Radius:0} px",115,77,11);Note($"Horizontal position {s.Horizontal:0}% · top offset {s.Top:0} px");break;
+                Island(90,18,240,34);Line(90,69,330,69);Line(90,63,90,75);Line(330,63,330,75);Text(Localization.Format("{0} × {1} px · radius {2} px",s.Width.ToString("0"),s.Height.ToString("0"),s.Radius.ToString("0")),115,77,11);Note(Localization.Format("Horizontal position {0}% · top offset {1} px",s.Horizontal.ToString("0"),s.Top.ToString("0")));break;
             case "Open panel":
-                Box(24,12,210,76,Brushes.Black);Box(37,23,35,14);Text("Media",86,25,10);Text("Song title",42,48,13,true);Bar(42,73,172,.4);Text($"{s.PanelWidth:0} px wide",253,24);Text($"Inset {s.PanelPadding:0} px",253,47,11);Text($"Text {s.PanelScale*100:0}%",253,67,11);Note($"Maximum height {s.PanelMaxHeight:0} px · spacing {s.SectionGap:0} px");break;
+                Box(24,12,210,76,Brushes.Black);Box(37,23,35,14);Text("Media",86,25,10);Text("Song title",42,48,13,true);Bar(42,73,172,.4);Text(Localization.Format("{0} px wide",s.PanelWidth.ToString("0")),253,24);Text(Localization.Format("Inset {0} px",s.PanelPadding.ToString("0")),253,47,11);Text(Localization.Format("Text {0}%",(s.PanelScale*100).ToString("0")),253,67,11);Note(Localization.Format("Maximum height {0} px · spacing {1} px",s.PanelMaxHeight.ToString("0"),s.SectionGap.ToString("0")));break;
             case "Hover preview":case "Hover & swipe":
-                Island(20,18,126,27);Line(159,37,199,37);Box(212,12,186,73,Brushes.Black);Text("Song title",226,24,13,true);Bar(226,61,156,.35);Text("Hover",45,63,11);Note(kind=="Hover & swipe"?$"Preview after {s.HoverDelayMs} ms · detail after {s.HoverDetailDelayMs} ms":$"Preview {s.HoverWidth:0} × {s.HoverHeight:0} px");break;
+                Island(20,18,126,27);Line(159,37,199,37);Box(212,12,186,73,Brushes.Black);Text("Song title",226,24,13,true);Bar(226,61,156,.35);Text("Hover",45,63,11);Note(kind=="Hover & swipe"?Localization.Format("Preview after {0} ms · detail after {1} ms",s.HoverDelayMs,s.HoverDetailDelayMs):Localization.Format("Preview {0} × {1} px",s.HoverWidth.ToString("0"),s.HoverHeight.ToString("0")));break;
             case "Enabled widgets & order":
                 foreach(var tile in widgetTiles){var bounds=tile.Bounds;Box(bounds.X,bounds.Y,bounds.Width,bounds.Height);dc.DrawText(tile.Label,new Point(bounds.X+6,bounds.Y+6));}Text("Visible panels, in your chosen order",14,Math.Max(99,widgetBottom+12),11,false,muted);break;
             case "Individual tools":
@@ -124,7 +124,7 @@ internal sealed class SettingsScene : FrameworkElement
                         case "system":Text("CPU   RAM",x+9,42,9);Bar(x+9,59,69,.3);Bar(x+9,70,69,.6);break;
                         default:Bar(x+10,45,65,.9);Bar(x+10,56,65,.6);Bar(x+10,67,65,.75);break;
                     }
-                }Note($"{available.Length} available pages · first {enabled.Length} shown in this example");break;
+                }Note(Localization.Format("{0} available pages · first {1} shown in this example",available.Length,enabled.Length));break;
             case "Clipboard history":
                 Text("Text",22,20,12,true);Text("Copied thought",22,42,11,false,muted);Text("Link",158,20,12,true);Text("example.com",158,42,11,false,muted);Box(296,18,40,40);dc.DrawEllipse(muted,null,new Point(324,28),3,3);Line(301,50,312,35);Line(312,35,331,52);Text("Image",346,30,11);Toggle(22,74,s.ClipboardHistory);Text(s.ClipboardHistory?"History enabled":"History off",64,74,11);Note("Example items · turning history off deletes saved items");break;
             case "Stopwatch":
@@ -132,7 +132,7 @@ internal sealed class SettingsScene : FrameworkElement
             case "Focus sessions":
                 Text(s.FocusMinutes+":00",28,20,28,true);Text("Focus",30,59,12,false,muted);Line(170,25,170,77);Text(s.BreakMinutes+":00",224,20,28,true);Text("Break",226,59,12,false,muted);Note("Used when the next session starts");break;
             case "Automatic tucking":
-                Box(20,18,112,35,Brushes.Black);Text("Visible",45,66,11);Box(154,18,112,s.TuckEdge,Brushes.Black,2);Text($"Tucked · {s.TuckEdge:0} DIP",164,66,11);dc.DrawRoundedRectangle(null,line,new Rect(288,18,112,35),8,8);Text("Hidden",320,66,11);Note(s.AlwaysTucked?"Always tucked · hover the edge for a preview":"Automatic rules · manual hide removes the whole island");break;
+                Box(20,18,112,35,Brushes.Black);Text("Visible",45,66,11);Box(154,18,112,s.TuckEdge,Brushes.Black,2);Text(Localization.Format("Tucked · {0} DIP",s.TuckEdge.ToString("0")),164,66,11);dc.DrawRoundedRectangle(null,line,new Rect(288,18,112,35),8,8);Text("Hidden",320,66,11);Note(s.AlwaysTucked?"Always tucked · hover the edge for a preview":"Automatic rules · manual hide removes the whole island");break;
             case "Manual tuck shortcut":
                 Keys(s.TuckHotkeyModifiers,24,24,130);Keys(s.TuckHotkeyKey,166,24,40);Text("Tuck / automatic",232,30,13,true);Note("First press tucks · second returns to automatic rules");break;
             case "Panel navigation":
@@ -152,15 +152,15 @@ internal sealed class SettingsScene : FrameworkElement
             case "Closed media display":
                 Silhouette(32,22,352,40,s.Preset=="Mac");if(s.ClosedMediaIcon=="Artwork")Cover(46,31,22);else Wave(46,42);if(s.ClosedMediaContent=="Waveform")Wave(158,42);else Text("Song title",160,34,13,true);Text("12:45",334,36,11,true);Note("Current closed media layout · example title and artwork");break;
             case "Visualizer":case "Waveform source":case "Live signal":
-                Text(s.WaveformSource=="Spectrum"?"Bass → mids → treble":"Amplitude history",22,18,13,true);Wave(125,62);Text(s.WaveformSensitivity.ToString("0.##")+"× sensitivity",270,38,12);Note(s.WaveformSource=="Spectrum"?"Real frequency bands · selected media output mix":"Measured selected-app amplitude · fast attack, smooth release");break;
+                Text(s.WaveformSource=="Spectrum"?"Bass → mids → treble":"Amplitude history",22,18,13,true);Wave(125,62);Text(s.WaveformSensitivity.ToString("0.##")+Localization.Text("× sensitivity"),270,38,12);Note(s.WaveformSource=="Spectrum"?"Real frequency bands · selected media output mix":"Measured selected-app amplitude · fast attack, smooth release");break;
             case "Lyrics":
-                Text("A little closer to the music",24,17,11,false,muted);Text("One line, right on time",24,42,22,true);Text("Slide     Focus     Karaoke",24,77,11,false,muted);Toggle(355,20,s.LyricsEnabled);Note(s.LyricsAnimation+" · Synced lyrics via LRCLIB · no key required");break;
+                Text("A little closer to the music",24,17,11,false,muted);Text("One line, right on time",24,42,22,true);Text("Slide     Focus     Karaoke",24,77,11,false,muted);Toggle(355,20,s.LyricsEnabled);Note(Localization.Text(s.LyricsAnimation)+Localization.Text(" · Synced lyrics via LRCLIB · no key required"));break;
             case "Move & resize":
                 Island(95,22,220,36);Line(88,18,66,18);Line(66,18,66,83);Line(66,83,88,83);Text("↔",180,70,20);Toggle(352,28,s.DockUnlocked);Note("Drag the top grip to move · lower corners resize each state");break;
             case "Completion sound":
                 Text(s.CountdownSound=="Off"?"Silent":"♪",25,18,28,true);Wave(119,50);Text(s.CountdownSound,264,25,16,true);Text((s.CountdownSoundVolume*100).ToString("0")+"%",264,53,12,false,muted);Note("Timer & Focus · audible without Windows notifications");break;
             case "Live feedback":
-                Island(24,23,208,34);Bar(54,47,146,.66);Text("Volume / brightness",252,27,12);Text("Temporary feedback",252,50,11,false,muted);Note($"Volume {(s.VolumeFeedback?"on":"off")} · brightness {(s.BrightnessFeedback?"on":"off")} · quiet motion {(s.WaveformIdleMotion?"on":"off")}");break;
+                Island(24,23,208,34);Bar(54,47,146,.66);Text("Volume / brightness",252,27,12);Text("Temporary feedback",252,50,11,false,muted);Note(Localization.Format("Volume {0} · brightness {1} · quiet motion {2}",Localization.Text(s.VolumeFeedback?"on":"off"),Localization.Text(s.BrightnessFeedback?"on":"off"),Localization.Text(s.WaveformIdleMotion?"on":"off")));break;
             case "Volume mixer":case "Audio behavior":
                 Text("Apps",24,18,13,true);Text("Output",246,18,13,true);Text("Music app",24,46,11);Bar(96,55,114,.7);Text("Windows default",246,46,11);Text("Mute or set volume",24,75,11,false,muted);Note("Illustrative controls · open the mixer to adjust real audio");break;
             case "Header wheel":
@@ -168,20 +168,20 @@ internal sealed class SettingsScene : FrameworkElement
             case "Clock":
                 Text(s.Clock24Hour?"14:35"+(s.ClockSeconds?":08":""):"2:35"+(s.ClockSeconds?":08":"")+" PM",26,18,30,true);Text(s.ShowDate?"Friday, 16 October":"Date hidden",27,60,12,false,muted);Note("Format example · seconds appear in Status");break;
             case "Monitor details":
-                Text("CPU · Memory",24,20,14,true);Text("Always in Overview",24,47,11,false,muted);Text("Network   "+(s.MonitorNetwork?"On":"Off"),244,17,11);Text("Storage     "+(s.MonitorStorage?"On":"Off"),244,39,11);Text("Processes  "+(s.MonitorProcesses?"On":"Off"),244,61,11);Note("Additional details are available in their Status tabs");break;
+                Text("CPU · Memory",24,20,14,true);Text("Always in Overview",24,47,11,false,muted);Text(Localization.Text("Network   ")+Localization.Text(s.MonitorNetwork?"On":"Off"),244,17,11);Text(Localization.Text("Storage     ")+Localization.Text(s.MonitorStorage?"On":"Off"),244,39,11);Text(Localization.Text("Processes  ")+Localization.Text(s.MonitorProcesses?"On":"Off"),244,61,11);Note("Additional details are available in their Status tabs");break;
             case "Launch display":
-                Text("Launch",24,18,16,true);Text("Current style: "+s.LaunchStyle.Replace("IconsLabels","Icons + labels"),24,50,13);Note("Saved apps and shortcuts use this display style");break;
+                Text("Launch",24,18,16,true);Text(Localization.Text("Current style: ")+Localization.Text(s.LaunchStyle.Replace("IconsLabels","Icons + labels")),24,50,13);Note("Saved apps and shortcuts use this display style");break;
             case "Shortcuts":
-                Text("Launch",24,18,15,true);Text(s.Shortcuts.Count+" saved shortcuts",250,22,11,false,muted);int si=0;foreach(var item in s.Shortcuts.Take(3)){Box(24+si*128,49,116,29);Text(item.Name,32+si++*128,57,11,false,null,100);}if(si==0)Text("Add an app, folder or website below",24,56,12);Note("Only your saved shortcuts appear in Launch");break;
+                Text("Launch",24,18,15,true);Text(Localization.Count(s.Shortcuts.Count,"saved shortcut","saved shortcuts"),250,22,11,false,muted);int si=0;foreach(var item in s.Shortcuts.Take(3)){Box(24+si*128,49,116,29);Text(item.Name,32+si++*128,57,11,false,null,100);}if(si==0)Text("Add an app, folder or website below",24,56,12);Note("Only your saved shortcuts appear in Launch");break;
             case "Layout profile":
                 Text("Appearance + layout",24,22,16,true);Text("Content order + gestures",24,50,12);Keys("Export / Import",250,27,143);Note("Excludes notes, clipboard items, app targets and startup");break;
             case "Ambient light":
                 Box(36,12,348,82,Brushes.Black,16);dc.PushClip(new RectangleGeometry(new Rect(36,12,348,82),16,16));
                 var ambientPalette=(System.Windows.Application.Current as App)?.AmbientAudio?.CoverColors??default;
                 var ambientColors=AmbientPolicy.ColorsFor(s,ambientPalette);
-                if(s.CoverAmbient){var light=new DrawingGroup{OpacityMask=AmbientPaint.BottomFade(s.AmbientSpread,AmbientLook.From(s))};light.Children.Add(new GeometryDrawing(AmbientPaint.ColorBand(ambientColors,s.AmbientStrength,AmbientLook.From(s)),null,new RectangleGeometry(new Rect(36,12,348,82))));dc.DrawDrawing(light);}dc.Pop();Cover(51,28,36);Text(s.AmbientScope,102,30,15,true);Text(s.AmbientAudioResponse+" · "+(int)(s.AmbientStrength*100)+"%",102,56,11);Note(s.AmbientColorSource+" · "+s.AmbientMotion+" · audio-reactive");break;
+                if(s.CoverAmbient){var light=new DrawingGroup{OpacityMask=AmbientPaint.BottomFade(s.AmbientSpread,AmbientLook.From(s))};light.Children.Add(new GeometryDrawing(AmbientPaint.ColorBand(ambientColors,s.AmbientStrength,AmbientLook.From(s)),null,new RectangleGeometry(new Rect(36,12,348,82))));dc.DrawDrawing(light);}dc.Pop();Cover(51,28,36);Text(s.AmbientScope,102,30,15,true);Text(Localization.Text(s.AmbientAudioResponse)+" · "+(int)(s.AmbientStrength*100)+"%",102,56,11);Note(Localization.Text(s.AmbientColorSource)+" · "+Localization.Text(s.AmbientMotion)+Localization.Text(" · audio-reactive"));break;
             case "Notification presentation":
-                Box(46,10,328,77,Brushes.Black,16);Text("Focus complete",68,25,16,true);Text("Time for a short break",68,52,11,false,muted);Text("2 queued",286,28,10,false,muted);Bar(68,73,280,.65);Note(s.NotificationAnimation+" · "+s.NotificationSeconds+" sec · "+(s.QuietHours?"quiet hours on":"quiet hours off"));break;
+                Box(46,10,328,77,Brushes.Black,16);Text("Focus complete",68,25,16,true);Text("Time for a short break",68,52,11,false,muted);Text("2 queued",286,28,10,false,muted);Bar(68,73,280,.65);Note(Localization.Text(s.NotificationAnimation)+" · "+s.NotificationSeconds+Localization.Text(" sec · ")+Localization.Text(s.QuietHours?"quiet hours on":"quiet hours off"));break;
             case "Notifications":
                 Box(36,18,215,34,Brushes.Black,17);Text("Timer finished",53,29,11,true);Keys(s.NotificationDelivery,274,20,110);Note("Notch / Windows / Both / Off · hidden island uses Windows");break;
             case "Other apps":
@@ -189,7 +189,7 @@ internal sealed class SettingsScene : FrameworkElement
             case "Downloads":
                 Box(24,18,42,47);Text("↓",36,25,21);Text("Report.pdf",83,22,14,true);Text("2 arrivals · drag originals",83,49,11,false,muted);Toggle(350,25,s.DownloadsEnabled);Note("Example only · folder arrivals inferred after stable readable size");break;
             case "Updates":
-                Text("Installed "+OfficialUpdates.InstalledVersion,22,15,13,true);Text("Example: newer stable",225,15,12,true);Bar(24,55,365,.6);Text("Check > download 60% > verify > install",24,70,12);Note("Automatic checks "+(s.AutoCheckUpdates?"on":"off")+" - no automatic installation");break;
+                Text(Localization.Text("Installed ")+OfficialUpdates.InstalledVersion,22,15,13,true);Text("Example: newer stable",225,15,12,true);Bar(24,55,365,.6);Text("Check > download 60% > verify > install",24,70,12);Note(Localization.Text("Automatic checks ")+Localization.Text(s.AutoCheckUpdates?"on":"off")+Localization.Text(" - no automatic installation"));break;
             case "Reset preferences":
                 Keys("Your preferences",20,24,128);Line(158,39,196,39);Keys("Backup saved",208,24,120);Text("Reset selected category",22,71,12,true);Note("Notes, Tasks, startup and clipboard capture stay intact");break;
             case "Behavior":
@@ -197,9 +197,9 @@ internal sealed class SettingsScene : FrameworkElement
             case "Local storage":
                 Text("Saved on this PC",24,21,17,true);Text("Preferences · Notes · Tasks",24,51,12);Text("No account required",24,77,11,false,muted);break;
             case "About NabyScape":
-                Text("NabyScape",24,20,23,true);Text("Windows 11 · x64",24,60,12,false,muted);Text("Version "+typeof(App).Assembly.GetName().Version!.ToString(3),250,31,12);break;
+                Text("NabyScape",24,20,23,true);Text("Windows 11 · x64",24,60,12,false,muted);Text(Localization.Text("Version ")+typeof(App).Assembly.GetName().Version!.ToString(3),250,31,12);break;
             case "Language & accessibility":
-                Text("Language",24,18,12,true);Keys(s.UiLanguage=="es"?"Español":s.UiLanguage=="id"?"Bahasa Indonesia":"English",210,12,176);
+                Text("Language",24,18,12,true);Keys(Localization.LanguageNames[Math.Max(0,Array.IndexOf(Localization.LanguageCodes,s.UiLanguage))],210,12,176);
                 Text("Text size",24,55,12,true);Text((s.AccessibilityTextScale*100).ToString("0",CultureInfo.InvariantCulture)+"%",218,55,12);Toggle(350,55,s.AccessibilityHighContrast);Note("Language · text size · contrast · Windows motion preferences");break;
             case "Private diagnostics":
                 Text("Review before sharing",24,18,16,true);Text("App version · service status · controlled events",24,48,11,false,muted);Keys("Copy",24,73,95);Keys("Export",133,73,95);Note("No automatic upload · conversations and credentials excluded");break;

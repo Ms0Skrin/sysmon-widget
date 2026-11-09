@@ -94,5 +94,5 @@ internal static class SystemMonitor
         return bytes.ToString(unit==0?"0":"0.#",CultureInfo.InvariantCulture)+" "+units[unit];
     }
     internal static string RateText(double? rate)=>rate.HasValue?Bytes(rate.Value)+"/s":"Sampling…";
-    internal static string Uptime(TimeSpan value)=>$"{(int)value.TotalDays}d {value.Hours}h {value.Minutes}m";
+    internal static string Uptime(TimeSpan value)=>Localization.Format("{0}d {1}h {2}m",(int)value.TotalDays,value.Hours,value.Minutes);
 }

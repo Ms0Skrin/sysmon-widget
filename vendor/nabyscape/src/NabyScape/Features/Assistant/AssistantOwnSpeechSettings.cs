@@ -84,7 +84,7 @@ internal sealed partial class AssistantProviderSettings
                 if(!await service.PrepareOwn(next)){result.Text=service.Status;return;}
                 ai.UseOwnSpeech(next);RefreshEnabled();Feedback("Your local speech models are saved and selected.");result.Text="Your models are selected. Open Voice mode → Start conversation when ready.";
             }
-            catch(Exception ex){result.Text="Could not use these models: "+ex.Message;Feedback(result.Text,true);}
+            catch(Exception ex){result.Text=Localization.Text("Could not use these models: ")+ex.Message;Feedback(result.Text,true);}
             finally{working=false;Refresh();}
         }
         saveOwnModels=Use;prepare.Click+=async(_,_)=>await Use();asr.SelectionChanged+=(_,_)=>Refresh();tts.SelectionChanged+=(_,_)=>Refresh();
@@ -101,7 +101,7 @@ internal sealed partial class AssistantProviderSettings
                 if(isFile()){var dialog=new OpenFileDialog{Title="Choose local speech model",Filter=filter,CheckFileExists=true};if(dialog.ShowDialog(Window.GetWindow(this))==true)input.Text=dialog.FileName;}
                 else{var dialog=new OpenFolderDialog{Title="Choose extracted speech model folder",Multiselect=false};if(dialog.ShowDialog(Window.GetWindow(this))==true)input.Text=dialog.FolderName;}
             }
-            catch(Exception ex){speechStatus.Text="Could not choose the model: "+ex.Message;}
+            catch(Exception ex){speechStatus.Text=Localization.Text("Could not choose the model: ")+ex.Message;}
         });browse.Margin=new(8,0,0,0);Grid.SetColumn(browse,1);row.Children.Add(browse);return row;
     }
 }

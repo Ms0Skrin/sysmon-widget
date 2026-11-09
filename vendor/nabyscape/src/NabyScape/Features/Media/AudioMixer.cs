@@ -15,7 +15,7 @@ internal sealed record MixerItem(MixerTarget Target,string Name,string OutputNam
 internal sealed record MixerSnapshot(IReadOnlyList<MixerItem> Outputs,IReadOnlyList<MixerItem> Apps,IReadOnlyList<string> Errors);
 internal sealed record MixerResult(int Changed,int Failed,IReadOnlyList<string> Errors)
 {
-    public string Summary=>$"{Changed} changed · {Failed} failed"+(Errors.Count>0?" · "+string.Join("; ",Errors):"");
+    public string Summary=>Localization.Format("{0} changed · {1} failed",Changed,Failed)+(Errors.Count>0?" · "+string.Join("; ",Errors):"");
 }
 
 internal sealed class AudioMixer

@@ -50,7 +50,7 @@ public sealed partial class OverlayWindow
         foreach(var (id,label) in new[]{("overview","Overview"),("hardware","Hardware"),("network","Network"),("storage","Storage"),("processes","Processes")})
         {
             if(id=="network" && !app.Settings.MonitorNetwork || id=="storage" && !app.Settings.MonitorStorage || id=="processes" && !app.Settings.MonitorProcesses)continue;
-            var button=UI.Button(label,()=>SelectMonitorTab(id));button.FontSize=10;button.Padding=new(7,5,7,5);button.MinHeight=28;button.Margin=new(0,0,3,3);UI.Named(button,"Monitor "+label);monitorTabs[id]=button;tabs.Children.Add(button);
+            var button=UI.Button(label,()=>SelectMonitorTab(id));button.FontSize=10;button.Padding=new(7,5,7,5);button.MinHeight=28;button.Margin=new(0,0,3,3);UI.Named(button,Localization.Text("Monitor ")+label);monitorTabs[id]=button;tabs.Children.Add(button);
         }
         panel.Children.Add(tabs);monitorDetailScroll=UI.Scroll(monitorRows);monitorDetailScroll.VerticalScrollBarVisibility=ScrollBarVisibility.Hidden;ScrollChrome.SetEnabled(monitorDetailScroll,false);monitorDetailScroll.Padding=new(0,0,2,0);UI.Named(monitorDetailScroll,"System details · scroll or use Page Down");
         tabs.Measure(new Size(Math.Max(1,bodyWidth),double.PositiveInfinity));
@@ -156,7 +156,7 @@ public sealed partial class OverlayWindow
         foreach(var cpu in hardware.Cpus)
         {
             var model=UI.Heading(cpu.Name.Length>0?cpu.Name:"Processor unavailable",12);model.TextWrapping=TextWrapping.NoWrap;model.TextTrimming=TextTrimming.CharacterEllipsis;model.ToolTip=cpu.Name;AddMonitorElement(model);
-            MonitorRow("Cores / threads",(cpu.Cores?.ToString()??"—")+" / "+(cpu.Threads?.ToString()??"—")+(cpu.MaxClock is double mhz && mhz>0?$" · {mhz:0} MHz":""));
+            MonitorRow("Cores / threads",(cpu.Cores?.ToString()??"—")+" / "+(cpu.Threads?.ToString()??"—")+(cpu.MaxClock is double mhz && mhz>0?Localization.Format(" · {0} MHz",mhz.ToString("0")):""));
         }
         if(hardware.Cpus.Count==0)MonitorRow("CPU details","Unavailable");
         MonitorSection("GRAPHICS");
@@ -175,7 +175,7 @@ public sealed partial class OverlayWindow
         }
         if(hardware.Sensors.Count>0){MonitorSection("TEMPERATURES & FANS");foreach(var sensor in hardware.Sensors)MonitorRow(sensor.Name,HardwareMonitor.SensorValue(sensor));}
         var technical=new StackPanel();
-        foreach(var gpu in hardware.Gpus){technical.Children.Add(UI.Text("Counter: "+gpu.Id,10,UI.Muted));technical.Children.Add(UI.Text("Shared memory: "+(gpu.Shared is ulong shared?SystemMonitor.Bytes(shared):"Unavailable"),11,UI.Muted));}
+        foreach(var gpu in hardware.Gpus){technical.Children.Add(UI.Text(Localization.Text("Counter: ")+gpu.Id,10,UI.Muted));technical.Children.Add(UI.Text(Localization.Text("Shared memory: ")+(gpu.Shared is ulong shared?SystemMonitor.Bytes(shared):"Unavailable"),11,UI.Muted));}
         technical.Children.Add(UI.Text("Utilization uses the busiest GPU engine. Counter IDs do not identify the model above.",11,UI.Muted));
         technical.Children.Add(UI.Text(hardware.Sensors.Count>0?"Sensors: "+string.Join(" / ",hardware.Sensors.Select(s=>s.Provider).Distinct()):"Temperature and fan sensors need an already running LibreHardwareMonitor or OpenHardwareMonitor WMI provider.",11,UI.Muted));
         if(hardware.Status!=null)technical.Children.Add(UI.Text(hardware.Status,10,UI.Muted));
