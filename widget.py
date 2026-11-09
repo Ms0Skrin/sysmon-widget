@@ -1,18 +1,18 @@
-"""Полупрозрачный виджет-монитор системы для рабочего стола Windows.
+"""SysMon Widget — полупрозрачные панели-виджеты для рабочего стола Windows.
 
-ЛКМ + перетаскивание — двигать (если не закреплён), ПКМ — меню.
-Кнопка с точками или горячая клавиша (по умолчанию Ctrl+Alt+Space) — панель приложений.
+Панелей может быть несколько, у каждой свой набор плиток (включая большие «Процессор» и
+«Видеокарта»). ЛКМ + перетаскивание — двигать, ПКМ — меню панели.
+Кнопка с точками (в выбранной панели) или горячая клавиша — панель приложений.
 Иконка в трее (ПКМ): показать/скрыть, приложения, настройки, обновления, выход.
 """
 import ctypes
 import queue
-import socket
 import sys
 import threading
 import time
 import tkinter as tk
-from collections import deque
-from tkinter import messagebox
+import uuid
+from tkinter import messagebox, simpledialog
 
 import psutil
 
@@ -24,28 +24,14 @@ import updater
 from config import APP_NAME, autostart_enabled, load_cfg, save_cfg, set_autostart
 from hotkey import HotkeyThread, hotkey_label
 from launcher import Launcher
-from sensors import Sensors, fmt_rate, fmt_value, sensor_max
+from panel import TILES, Panel
+from sensors import Sensors, cpu_details, fmt_rate, fmt_value, gpu_details
 from settings import SettingsWindow
+from theme import T, set_theme
 from tray import TrayIcon
 from traymenu import TrayMenu
-from theme import T, draw_series, font, round_corners, series_colors, set_theme
 
-HISTORY = 60          # точек на графике
-INTERVAL_MS = 1000    # обновление UI
-
-# встроенные плитки: key -> (заголовок, фикс. максимум шкалы или None=авто, вид)
-TILES = {
-    "cpu":      ("ЦП · нагрузка",    100, "graph"),
-    "cores":    ("ЦП · потоки",      100, "bars"),
-    "cpu_temp": ("ЦП · температура", 100, "graph"),
-    "ram":      ("Память",           100, "graph"),
-    "gpu":      ("ГП · нагрузка",    100, "graph"),
-    "gpu_temp": ("ГП · температура", 100, "graph"),
-    "vram":     ("Видеопамять",      100, "graph"),
-    "gpu_pwr":  ("ГП · мощность",    None, "graph"),
-    "disk":     ("Диск R / W",       None, "graph"),
-    "net":      ("Сеть ↓ / ↑",       None, "graph"),
-}
+INTERVAL_MS = 1000
 
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -76,85 +62,44 @@ def fmt_uptime(sec):
 
 
 def temp_color(t):
-    return T["hot"] if t >= 85 else T["warn"] if t >= 70 else T["fg"]
+    return T["hot"] if t >= 85 else T["warn"] if t >= 70 else None
 
 
-# ---------- плитка ----------
-class Tile:
-    def __init__(self, parent, title, colors, fixed_max, kind, s, history):
-        self.colors, self.fixed_max, self.kind, self.s = colors, fixed_max, kind, s
-        self.series = history  # список deque, живёт дольше плитки (переживает смену темы)
-        self.bars = []
-
-        self.frame = tk.Frame(parent, bg=T["panel"], padx=int(8 * s), pady=int(6 * s))
-        tk.Label(self.frame, text=title.upper(), bg=T["panel"], fg=T["muted"],
-                 font=font(8, True), anchor="w").pack(fill="x")
-        self.value = tk.Label(self.frame, text="—", bg=T["panel"], fg=T["fg"],
-                              font=font(13, True), anchor="w")
-        self.value.pack(fill="x")
-        self.w, self.h = int(190 * s), int(34 * s)
-        self.canvas = tk.Canvas(self.frame, width=self.w, height=self.h, bg=T["graph_bg"],
-                                highlightthickness=0, bd=0)
-        self.canvas.pack(fill="x", pady=(int(2 * s), 0))
-
-    def set_text(self, text, color=None):
-        self.value.config(text=text, fg=color or T["fg"])
-
-    def push(self, values, text, color=None):
-        for series, v in zip(self.series, values):
-            series.append(float(v))
-        self.set_text(text, color)
-        self.draw()
-
-    def push_bars(self, values, text):
-        self.bars = values
-        self.set_text(text)
-        self.draw()
-
-    def draw(self):
-        c, w, h = self.canvas, self.w, self.h
-        c.delete("all")
-        if self.kind == "bars":
-            n = max(len(self.bars), 1)
-            gap = max(1, int(1 * self.s))
-            bw = (w - gap * (n - 1)) / n
-            for i, v in enumerate(self.bars):
-                x0 = i * (bw + gap)
-                bh = max(1, v / 100 * h)
-                col = T["hot"] if v >= 90 else self.colors[0]
-                c.create_rectangle(x0, h - bh, x0 + bw, h, fill=col, outline="")
-            return
-        top = self.fixed_max or (max(max(s) for s in self.series) * 1.15) or 1
-        draw_series(c, w, h, self.series, self.colors, top, T["style"],
-                    max(1, T["line_w"] * self.s), T["graph_bg"], pad=2 * self.s)
+def migrate_panels(cfg):
+    """Старый формат (одно окно) → список панелей."""
+    if not cfg.get("panels"):
+        cfg["panels"] = [{"id": "main", "name": "Основная", "tiles": list(cfg.get("tiles", [])),
+                          "columns": cfg.get("columns", 2), "x": cfg.get("x"), "y": cfg.get("y"),
+                          "header": True}]
+    ids = [p["id"] for p in cfg["panels"]]
+    if cfg.get("menu_panel") not in ids:
+        cfg["menu_panel"] = ids[0]
+    for p in cfg["panels"]:
+        p["tiles"] = [k for k in p.get("tiles", []) if k in TILES or k in cfg["sensor_meta"]]
 
 
-# ---------- виджет ----------
 class Widget:
-    TILES = TILES
+    """Приложение: трей, датчики, настройки, горячая клавиша — и набор панелей."""
+    TILES = {k: (v[0],) for k, v in TILES.items()}
 
     def __init__(self, selftest=False):
         self.cfg = load_cfg(set(TILES))
-        self.cfg["tiles"] = [k for k in self.cfg["tiles"]
-                             if k in TILES or k in self.cfg["sensor_meta"]]
+        migrate_panels(self.cfg)
         set_theme(self.cfg["theme"], self.cfg["graph_style"])
         self.cmds = queue.Queue()
         self.tray = None
-        self._drag = None
-        self._press = None
-        self._moved = False
         self._updating = False
         self.hist = {}
-        self.tiles = {}
+        self.panels = []
+        self.edit_pid = self.cfg["panels"][0]["id"]  # какую панель правит вкладка «Датчики»
+        self.uptime_text = ""
         self.naby_msg = ""
         self.taskbar_msg = ""
         self._naby_busy = False
 
         self.root = root = tk.Tk()
         root.title(APP_NAME)
-        root.overrideredirect(True)
-        root.attributes("-alpha", self.cfg["alpha"])
-        root.attributes("-topmost", self.cfg["topmost"])
+        root.withdraw()  # корневое окно скрыто; панели — отдельные окна
         self.s = root.winfo_fpixels("1i") / 96
 
         self.make_vars()
@@ -163,23 +108,15 @@ class Widget:
         self.hotkeys = HotkeyThread(lambda: self.cmds.put("launcher"))
         self.hotkeys.start()
 
-        self.build_ui()
-        self.build_menu()
-        root.bind_all("<ButtonPress-1>", self.drag_start)
-        root.bind_all("<B1-Motion>", self.drag_move)
-        root.bind_all("<ButtonRelease-1>", self.drag_end)
-        root.update_idletasks()
-        self.place_window()
-        round_corners(root)
-
         psutil.cpu_percent(None)
         psutil.cpu_percent(None, percpu=True)
         self.last_t = time.monotonic()
         self.last_disk = psutil.disk_io_counters()
         self.last_net = psutil.net_io_counters()
-
         self.sensors = Sensors()
         self.sensors.start()
+
+        self.build_panels()
         self.hotkey_ok = self.apply_hotkey()
         self.start_tray()
         root.after(200, self.tick)
@@ -194,110 +131,101 @@ class Widget:
         if self.cfg["taskbar_mode"]:
             root.after(1000, lambda: self.set_taskbar_mode(self.cfg["taskbar_mode"]))
 
-    # ---------- интерфейс ----------
-    def build_ui(self):
-        root, s = self.root, self.s
-        for c in root.winfo_children():
-            if not isinstance(c, (tk.Toplevel, tk.Menu)):
-                c.destroy()
-        root.configure(bg=T["bg"])
-        body = self.body = tk.Frame(root, bg=T["bg"], padx=int(10 * s), pady=int(8 * s))
-        body.pack(fill="both", expand=True)
+    # ---------- панели ----------
+    def build_panels(self):
+        for p in self.panels:
+            p.destroy()
+        self.panels = [Panel(self, pc) for pc in self.cfg["panels"]]
 
-        head = tk.Frame(body, bg=T["bg"])
-        head.pack(fill="x", pady=(0, int(6 * s)))
-        # кнопка «все приложения»: квадрат из точек 3×3, как в старом Android / GNOME
-        size = int(26 * s)
-        self.apps_btn = tk.Canvas(head, width=size, height=size, bg=T["panel"], highlightthickness=0,
-                                  bd=0, cursor="hand2")
-        step, r = size / 4, max(1.5, 2.1 * s)
-        for i in range(3):
-            for j in range(3):
-                cx, cy = step * (i + 1), step * (j + 1)
-                self.apps_btn.create_oval(cx - r, cy - r, cx + r, cy + r, fill=T["accent"], outline="")
-        self.apps_btn.pack(side="left", padx=(0, int(8 * s)))
-        self.apps_btn.bind("<Enter>", lambda _e: self.apps_btn.config(bg=T["hover"]))
-        self.apps_btn.bind("<Leave>", lambda _e: self.apps_btn.config(bg=T["panel"]))
-        self.apps_btn.bind("<ButtonRelease-1>", self.on_apps_button, add="+")
-        root.apps_button = self.apps_btn
-        tk.Label(head, text=socket.gethostname(), bg=T["bg"], fg=T["fg"],
-                 font=font(10, True)).pack(side="left")
-        self.lock_lbl = tk.Label(head, text="", bg=T["bg"], fg=T["muted"], font=("Segoe UI Emoji", 9))
-        self.lock_lbl.pack(side="left", padx=(int(6 * s), 0))
-        self.uptime = tk.Label(head, text="", bg=T["bg"], fg=T["muted"], font=font(8))
-        self.uptime.pack(side="right")
+    def panel(self, pid):
+        return next((p for p in self.panels if p.pid == pid), None)
 
-        self.grid = tk.Frame(body, bg=T["bg"])
-        self.grid.pack(fill="both", expand=True)
-        self.tiles = {}
-        self.layout()
-        self.update_lock_label()
+    def panel_cfg(self, pid):
+        return next((p for p in self.cfg["panels"] if p["id"] == pid), None)
 
-    def _bind_menu(self, w):
-        w.bind("<Button-3>", self.show_menu)
-        for c in w.winfo_children():
-            self._bind_menu(c)
+    @property
+    def menu_panel(self):
+        return self.panel(self.cfg["menu_panel"]) or (self.panels[0] if self.panels else None)
 
-    def tile_spec(self, key):
-        """→ (title, colors, fixed_max, kind, n_series) или None."""
-        if key in TILES:
-            title, mx, kind = TILES[key]
-            colors = series_colors(key)
-            return title, colors, mx, kind, len(colors)
-        meta = self.cfg["sensor_meta"].get(key)
-        if meta:
-            return meta["title"], series_colors(key, meta["type"]), sensor_max(meta["type"]), "graph", 1
-        return None
+    def add_panel(self, name=None, tiles=None):
+        n = len(self.cfg["panels"]) + 1
+        pc = {"id": uuid.uuid4().hex[:8], "name": name or f"Панель {n}",
+              "tiles": tiles if tiles is not None else ["gpu_card"], "columns": 2, "x": None, "y": None,
+              "header": True}
+        self.cfg["panels"].append(pc)
+        self.panels.append(Panel(self, pc))
+        self.save()
+        return pc
 
-    def get_tile(self, key):
-        if key not in self.tiles:
-            spec = self.tile_spec(key)
-            if not spec:
-                return None
-            title, colors, mx, kind, n = spec
-            hist = self.hist.setdefault(key, [deque([0.0] * HISTORY, maxlen=HISTORY) for _ in range(n)])
-            self.tiles[key] = Tile(self.grid, title, colors, mx, kind, self.s, hist)
-        return self.tiles[key]
+    def remove_panel(self, pid):
+        if len(self.cfg["panels"]) <= 1:
+            return
+        self.cfg["panels"] = [p for p in self.cfg["panels"] if p["id"] != pid]
+        p = self.panel(pid)
+        if p:
+            p.destroy()
+            self.panels.remove(p)
+        if self.cfg["menu_panel"] == pid:
+            self.set_menu_panel(self.cfg["panels"][0]["id"])
+        if self.edit_pid == pid:
+            self.edit_pid = self.cfg["panels"][0]["id"]
+        self.save()
 
-    def layout(self):
-        for t in self.tiles.values():
-            t.frame.grid_forget()
-        cols = max(1, int(self.cfg["columns"]))
-        gap = int(3 * self.s)
-        for i, key in enumerate(self.cfg["tiles"]):
-            t = self.get_tile(key)
-            if t:
-                t.frame.grid(row=i // cols, column=i % cols, padx=gap, pady=gap, sticky="nsew")
-                t.draw()
-        self._bind_menu(self.body)
+    def rename_panel(self, pid, name):
+        self.panel_cfg(pid)["name"] = name
+        self.relayout(pid)
+        self.save()
 
-    def tile_enabled(self, key):
-        return key in self.cfg["tiles"]
+    def set_menu_panel(self, pid):
+        old = self.cfg["menu_panel"]
+        self.cfg["menu_panel"] = pid
+        for x in {old, pid}:
+            p = self.panel(x)
+            if p:
+                p.build()
+                p.reshape()
+        self.save()
 
-    def set_tile(self, key, on, meta=None):
+    def set_panel_option(self, pid, key, value):
+        self.panel_cfg(pid)[key] = value
+        p = self.panel(pid)
+        if p:
+            p.build()
+            p.reshape()
+        self.save()
+
+    def relayout(self, pid=None):
+        for p in self.panels:
+            if pid is None or p.pid == pid:
+                p.layout()
+
+    # совместимость с настройками: плитки в «редактируемой» панели
+    def tile_enabled(self, key, pid=None):
+        pc = self.panel_cfg(pid or self.edit_pid)
+        return bool(pc) and key in pc["tiles"]
+
+    def set_tile(self, key, on, meta=None, pid=None):
         if meta:
             self.cfg["sensor_meta"][key] = meta
-        tiles = self.cfg["tiles"]
-        if on and key not in tiles:
-            tiles.append(key)
-        elif not on and key in tiles:
-            tiles.remove(key)
-            if key in self.tiles:
-                self.tiles.pop(key).frame.destroy()
-        if key in self.v_tiles:
-            self.v_tiles[key].set(on)
-        self.layout()
+        pc = self.panel_cfg(pid or self.edit_pid)
+        if pc is None:
+            return
+        if on and key not in pc["tiles"]:
+            pc["tiles"].append(key)
+        elif not on and key in pc["tiles"]:
+            pc["tiles"].remove(key)
+        self.relayout(pc["id"])
         self.save()
 
     def apply_theme(self, name, style=""):
         self.cfg["theme"], self.cfg["graph_style"] = name, style
         set_theme(name, style)
         self.save()
-        self.build_ui()
-        self.build_menu()
-        round_corners(self.root)
+        for p in self.panels:
+            p.build()
+            p.reshape()
         if self.launcher.visible():
-            self.launcher.show(self.root, animate=False)
+            self.launcher.show(self.menu_panel.win if self.menu_panel else None, animate=False)
         if self.cfg["taskbar_mode"] == "tint":
             self.set_taskbar_mode("tint")
 
@@ -313,80 +241,58 @@ class Widget:
         hk = self.cfg["hotkey"]
         return hotkey_label(hk["mods"], hk["vk"])
 
-    # ---------- окно ----------
-    def place_window(self):
-        r = self.root
-        w = r.winfo_reqwidth()
-        u = ctypes.windll.user32
-        vx, vy = u.GetSystemMetrics(76), u.GetSystemMetrics(77)
-        vw, vh = u.GetSystemMetrics(78), u.GetSystemMetrics(79)
-        x, y = self.cfg["x"], self.cfg["y"]
-        if x is None or y is None or not (vx <= x <= vx + vw - 40 and vy <= y <= vy + vh - 40):
-            x = r.winfo_screenwidth() - w - int(24 * self.s)
-            y = int(48 * self.s)
-        r.geometry(f"+{x}+{y}")
-
-    def _is_main(self, widget):
-        try:
-            return widget.winfo_toplevel() is self.root
-        except Exception:
-            return False
-
-    def drag_start(self, e):
-        self._drag = None
-        if not self._is_main(e.widget):
-            return
-        self._press = (e.x_root, e.y_root)
-        self._moved = False
-        if not self.cfg["locked"]:
-            self._drag = (e.x_root - self.root.winfo_x(), e.y_root - self.root.winfo_y())
-
-    def drag_move(self, e):
-        if self._press and abs(e.x_root - self._press[0]) + abs(e.y_root - self._press[1]) > 4:
-            self._moved = True
-        if self._drag and self._moved:
-            self.root.geometry(f"+{e.x_root - self._drag[0]}+{e.y_root - self._drag[1]}")
-
-    def drag_end(self, _e):
-        if self._drag and self._moved:
-            self.cfg["x"], self.cfg["y"] = self.root.winfo_x(), self.root.winfo_y()
-            self.save()
-        self._drag = None
-
-    def on_apps_button(self, _e):
-        if not self._moved:
-            self.launcher.toggle(anchor=self.root)
-
-    # ---------- меню виджета ----------
+    # ---------- меню панели ----------
     def make_vars(self):
         self.v_top = tk.BooleanVar(value=self.cfg["topmost"])
         self.v_lock = tk.BooleanVar(value=self.cfg["locked"])
         self.v_auto = tk.BooleanVar(value=autostart_enabled())
         self.v_icons_hidden = tk.BooleanVar(value=not desktop.icons_visible())
         self.v_alpha = tk.DoubleVar(value=self.cfg["alpha"])
-        self.v_cols = tk.IntVar(value=self.cfg["columns"])
-        self.v_tiles = {k: tk.BooleanVar(value=k in self.cfg["tiles"]) for k in TILES}
 
-    def build_menu(self):
-        m = self.menu = tk.Menu(self.root, tearoff=0)
-        m.add_command(label="Приложения", command=lambda: self.launcher.show(self.root))
-        m.add_separator()
-        m.add_checkbutton(label="Закрепить на месте", variable=self.v_lock, command=self.toggle_lock)
-        m.add_checkbutton(label="Поверх всех окон", variable=self.v_top, command=self.toggle_top)
-        m.add_checkbutton(label="Скрыть иконки рабочего стола", variable=self.v_icons_hidden,
-                          command=lambda: self.set_desktop_icons_hidden(self.v_icons_hidden.get()))
+    def show_panel_menu(self, panel, e):
+        self.v_icons_hidden.set(not desktop.icons_visible())
+        pc, pid = panel.cfg, panel.pid
+        m = tk.Menu(self.root, tearoff=0)
+        self._menu_vars = []
+
+        def var(value, cls=tk.BooleanVar):
+            v = cls(value=value)
+            self._menu_vars.append(v)
+            return v
+
+        m.add_command(label="Приложения", command=lambda: self.launcher.show(self.menu_panel.win))
         m.add_separator()
         tiles = tk.Menu(m, tearoff=0)
         for key, (title, *_r) in TILES.items():
-            tiles.add_checkbutton(label=title, variable=self.v_tiles[key],
-                                  command=lambda k=key: self.set_tile(k, self.v_tiles[k].get()))
+            v = var(key in pc["tiles"])
+            tiles.add_checkbutton(label=title, variable=v,
+                                  command=lambda k=key, v=v: self.set_tile(k, v.get(), pid=pid))
+            if key == "gpu_card":
+                tiles.add_separator()
         tiles.add_separator()
-        tiles.add_command(label="Все датчики…", command=lambda: self.settings.show("sensors"))
-        m.add_cascade(label="Плитки", menu=tiles)
+        tiles.add_command(label="Все датчики…", command=lambda: self.open_sensors_for(pid))
+        m.add_cascade(label="Плитки этой панели", menu=tiles)
         cols = tk.Menu(m, tearoff=0)
+        vc = var(panel.columns, tk.IntVar)
         for n in (1, 2, 3, 4):
-            cols.add_radiobutton(label=str(n), value=n, variable=self.v_cols, command=self.set_cols)
+            cols.add_radiobutton(label=str(n), value=n, variable=vc,
+                                 command=lambda: self.set_panel_option(pid, "columns", vc.get()))
         m.add_cascade(label="Колонки", menu=cols)
+        vh = var(pc.get("header", True))
+        m.add_checkbutton(label="Заголовок", variable=vh,
+                          command=lambda: self.set_panel_option(pid, "header", vh.get()))
+        vm = var(self.cfg["menu_panel"] == pid)
+        m.add_checkbutton(label="Кнопка приложений на этой панели", variable=vm,
+                          command=lambda: self.set_menu_panel(pid))
+        m.add_separator()
+        m.add_command(label="Новая панель", command=self.add_panel)
+        if len(self.panels) > 1:
+            m.add_command(label="Удалить эту панель", command=lambda: self.confirm_remove(pid))
+        m.add_separator()
+        m.add_checkbutton(label="Закрепить все панели", variable=self.v_lock, command=self.toggle_lock)
+        m.add_checkbutton(label="Поверх всех окон", variable=self.v_top, command=self.toggle_top)
+        m.add_checkbutton(label="Скрыть иконки рабочего стола", variable=self.v_icons_hidden,
+                          command=lambda: self.set_desktop_icons_hidden(self.v_icons_hidden.get()))
         m.add_command(label="Оформление…", command=lambda: self.settings.show("look"))
         if self.cfg["naby_enabled"]:
             nm = tk.Menu(m, tearoff=0)
@@ -400,40 +306,48 @@ class Widget:
         m.add_command(label="Настройки…", command=lambda: self.settings.show())
         m.add_command(label="Скрыть в трей", command=self.hide)
         m.add_command(label="Выход", command=self.quit)
-
-    def show_menu(self, e):
-        self.v_icons_hidden.set(not desktop.icons_visible())
         try:
-            self.menu.tk_popup(e.x_root, e.y_root)
+            m.tk_popup(e.x_root, e.y_root)
         finally:
-            self.menu.grab_release()
+            m.grab_release()
+
+    def open_sensors_for(self, pid):
+        self.edit_pid = pid
+        self.settings.show("sensors")
+
+    def confirm_remove(self, pid):
+        name = self.panel_cfg(pid).get("name", "панель")
+        if messagebox.askyesno("Удалить панель", f"Удалить «{name}»?"):
+            self.remove_panel(pid)
+
+    def ask_new_panel(self, parent=None):
+        name = simpledialog.askstring("Новая панель", "Название панели:", parent=parent,
+                                      initialvalue=f"Панель {len(self.cfg['panels']) + 1}")
+        if name:
+            return self.add_panel(name.strip())
+        return None
 
     def toggle_lock(self):
         self.cfg["locked"] = self.v_lock.get()
-        self.update_lock_label()
+        for p in self.panels:
+            p.render_header()
         self.save()
-
-    def update_lock_label(self):
-        self.lock_lbl.config(text="🔒" if self.cfg["locked"] else "")
 
     def toggle_top(self):
         self.cfg["topmost"] = self.v_top.get()
-        self.root.attributes("-topmost", self.cfg["topmost"])
+        for p in self.panels:
+            p.win.attributes("-topmost", self.cfg["topmost"])
         self.save()
 
     def set_desktop_icons_hidden(self, hidden):
         desktop.set_icons_visible(not hidden)
         self.v_icons_hidden.set(hidden)
 
-    def set_cols(self):
-        self.cfg["columns"] = self.v_cols.get()
-        self.layout()
-        self.save()
-
     def set_alpha(self, a):
         self.cfg["alpha"] = round(a, 3)
         self.v_alpha.set(self.cfg["alpha"])
-        self.root.attributes("-alpha", self.cfg["alpha"])
+        for p in self.panels:
+            p.win.attributes("-alpha", self.cfg["alpha"])
         self.save()
 
     def set_launcher_alpha(self, a):
@@ -505,7 +419,6 @@ class Widget:
     def set_naby_enabled(self, on):
         self.cfg["naby_enabled"] = on
         self.save()
-        self.build_menu()
         if on:
             self.naby_ensure(start=True)
         else:
@@ -574,11 +487,13 @@ class Widget:
                              lambda x, y: self.cmds.put(("tray_menu", x, y)))
         self.tray.start()
 
+    def hidden(self):
+        return not self.panels or self.panels[0].win.state() == "withdrawn"
+
     def show_tray_menu(self, x, y):
         go = lambda name: (lambda: self.cmds.put(name))
-        hidden = self.root.state() == "withdrawn"
         items = [
-            ("show", "Показать виджет" if hidden else "Скрыть виджет", go("toggle")),
+            ("show", "Показать панели" if self.hidden() else "Скрыть панели", go("toggle")),
             ("apps", "Приложения", go("launcher")),
             ("settings", "Настройки", go("settings")),
             ("look", "Оформление", lambda: self.settings.show("look")),
@@ -596,7 +511,7 @@ class Widget:
             while True:
                 cmd = self.cmds.get_nowait()
                 if cmd == "toggle":
-                    self.show() if self.root.state() == "withdrawn" else self.hide()
+                    self.show() if self.hidden() else self.hide()
                 elif cmd == "launcher":
                     self.launcher.toggle()
                 elif cmd == "settings":
@@ -642,12 +557,14 @@ class Widget:
                 messagebox.showerror("Обновление не удалось", out)
 
     def hide(self):
-        self.root.withdraw()
+        for p in self.panels:
+            p.win.withdraw()
 
     def show(self):
-        self.root.deiconify()
-        self.root.overrideredirect(True)
-        self.root.attributes("-topmost", self.cfg["topmost"])
+        for p in self.panels:
+            p.win.deiconify()
+            p.win.attributes("-topmost", self.cfg["topmost"])
+            p.reshape()
 
     def quit(self, stop_sensors=True):
         if self.cfg["taskbar_mode"] and stop_sensors:
@@ -669,22 +586,24 @@ class Widget:
             self.root.quit()
 
     def selftest_dump(self):
-        print({k: t.value.cget("text") for k, t in self.tiles.items()})
+        for p in self.panels:
+            print(p.cfg.get("name"), {k: (t.main if t.kind != "card" else (t.card or {}).get("ring_text"))
+                                      for k, t in p.tiles.items()})
         lhm, ok = self.sensors.get_lhm()
-        print("lhm ok:", ok, "sensors:", len(lhm), "| uptime:", self.uptime.cget("text"))
+        print("lhm ok:", ok, "sensors:", len(lhm), "| uptime:", self.uptime_text)
         print("hotkey:", self.hotkey_text(), "registered:", self.hotkey_ok)
         self.quit(stop_sensors=False)
 
     # ---------- данные ----------
-    def tick(self):
+    def collect(self, keys):
+        """Метрики для всех нужных плиток: key -> dict или None."""
         now = time.monotonic()
         dt = max(now - self.last_t, 1e-3)
         self.last_t = now
-        active = set(self.cfg["tiles"])
         sen = self.sensors.get()
-
-        def tile(key):
-            return self.tiles.get(key) if key in active else None
+        lhm, ok = self.sensors.get_lhm()
+        off = "датчики выкл." if not self.cfg["lhm_enabled"] else "ожидание…"
+        M = {}
 
         cpu = psutil.cpu_percent(None)
         per = psutil.cpu_percent(None, percpu=True)
@@ -699,61 +618,57 @@ class Widget:
         down = (nio.bytes_recv - self.last_net.bytes_recv) / dt
         up = (nio.bytes_sent - self.last_net.bytes_sent) / dt
         self.last_net = nio
+        gb = 1024 ** 3
 
-        if t := tile("cpu"):
-            t.push([cpu], f"{cpu:.0f}%")
-        if t := tile("cores"):
-            t.push_bars(per, f"{len(per)} потоков · макс {max(per):.0f}%")
-        if t := tile("cpu_temp"):
-            if "cpu_temp" in sen:
-                v = sen["cpu_temp"]
-                t.push([v], f"{v:.0f} °C", temp_color(v))
-            else:
-                t.set_text("датчики выкл." if not self.cfg["lhm_enabled"] else "ожидание…", T["muted"])
-        if t := tile("ram"):
-            gb = 1024 ** 3
-            t.push([vm.percent], f"{vm.percent:.0f}% · {vm.used / gb:.1f}/{vm.total / gb:.0f} ГБ")
-        for key, fmt in (("gpu", lambda v: f"{v:.0f}%"), ("gpu_pwr", lambda v: f"{v:.0f} Вт")):
-            if t := tile(key):
-                if key in sen:
-                    t.push([sen[key]], fmt(sen[key]))
+        M["cpu"] = {"values": [cpu], "main": f"{cpu:.0f}%", "sub": f"{len(per)} потоков"}
+        M["cores"] = {"bars": per, "main": f"макс {max(per):.0f}%", "sub": f"{len(per)} потоков"}
+        if "cpu_temp" in sen:
+            v = sen["cpu_temp"]
+            M["cpu_temp"] = {"values": [v], "main": f"{v:.0f} °C", "color": temp_color(v)}
+        else:
+            M["cpu_temp"] = {"main": off, "color": T["muted"]}
+        M["ram"] = {"values": [vm.percent], "main": f"{vm.percent:.0f}%",
+                    "sub": f"{vm.used / gb:.1f} / {vm.total / gb:.0f} ГБ"}
+        if "gpu" in sen:
+            M["gpu"] = {"values": [sen["gpu"]], "main": f"{sen['gpu']:.0f}%", "sub": sen.get("gpu_name", "")}
+        if "gpu_temp" in sen:
+            v = sen["gpu_temp"]
+            M["gpu_temp"] = {"values": [v], "main": f"{v:.0f} °C", "color": temp_color(v)}
+        if "vram_used" in sen and sen.get("vram_total"):
+            pct = sen["vram_used"] / sen["vram_total"] * 100
+            M["vram"] = {"values": [pct], "main": f"{pct:.0f}%",
+                         "sub": f"{sen['vram_used'] / 1024:.1f} / {sen['vram_total'] / 1024:.0f} ГБ"}
+        if "gpu_pwr" in sen:
+            M["gpu_pwr"] = {"values": [sen["gpu_pwr"]], "main": f"{sen['gpu_pwr']:.0f} Вт"}
+        M["disk"] = {"values": [rd, wr], "main": f"↓ {fmt_rate(rd)}", "sub": f"запись {fmt_rate(wr)}"}
+        M["net"] = {"values": [down, up], "main": f"↓ {fmt_rate(down)}", "sub": f"↑ {fmt_rate(up)}"}
+        if "cpu_card" in keys:
+            M["cpu_card"] = cpu_details(lhm if ok else [], per, cpu)
+        if "gpu_card" in keys:
+            M["gpu_card"] = gpu_details(lhm if ok else [], sen)
+
+        by_id = {x["id"]: x for x in lhm} if ok else {}
+        for key in keys:
+            if key.startswith("lhm:"):
+                x = by_id.get(key[4:])
+                if x:
+                    v = x["value"]
+                    M[key] = {"values": [v], "main": fmt_value(x["type"], v),
+                              "color": temp_color(v) if x["type"] == "Temperature" else None}
                 else:
-                    t.set_text("нет данных", T["muted"])
-        if t := tile("gpu_temp"):
-            if "gpu_temp" in sen:
-                v = sen["gpu_temp"]
-                t.push([v], f"{v:.0f} °C", temp_color(v))
-            else:
-                t.set_text("нет данных", T["muted"])
-        if t := tile("vram"):
-            if "vram_used" in sen and sen.get("vram_total"):
-                pct = sen["vram_used"] / sen["vram_total"] * 100
-                t.push([pct], f"{pct:.0f}% · {sen['vram_used'] / 1024:.1f}/{sen['vram_total'] / 1024:.0f} ГБ")
-            else:
-                t.set_text("нет данных", T["muted"])
-        if t := tile("disk"):
-            t.push([rd, wr], f"{fmt_rate(rd)} / {fmt_rate(wr)}")
-        if t := tile("net"):
-            t.push([down, up], f"{fmt_rate(down)} / {fmt_rate(up)}")
+                    M[key] = {"main": "нет данных" if ok else off, "color": T["muted"]}
+        return M
 
-        lhm_keys = [k for k in self.cfg["tiles"] if k.startswith("lhm:")]
-        if lhm_keys:
-            lhm, ok = self.sensors.get_lhm()
-            by_id = {s_["id"]: s_ for s_ in lhm}
-            for key in lhm_keys:
-                t = self.tiles.get(key)
-                if not t:
-                    continue
-                s_ = by_id.get(key[4:])
-                if s_:
-                    v = s_["value"]
-                    color = temp_color(v) if s_["type"] == "Temperature" else None
-                    t.push([v], fmt_value(s_["type"], v), color)
-                else:
-                    t.set_text("нет данных" if ok else "датчики выкл.", T["muted"])
-
-        self.uptime.config(text="Uptime " + fmt_uptime(time.time() - psutil.boot_time()))
-        self.root.after(INTERVAL_MS, self.tick)
+    def tick(self):
+        keys = {k for p in self.cfg["panels"] for k in p["tiles"]}
+        self.uptime_text = fmt_uptime(time.time() - psutil.boot_time())
+        try:
+            metrics = self.collect(keys)
+            if not self.hidden():
+                for p in self.panels:
+                    p.update(metrics)
+        finally:
+            self.root.after(INTERVAL_MS, self.tick)
 
     def run(self):
         self.root.mainloop()

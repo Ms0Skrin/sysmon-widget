@@ -19,7 +19,7 @@ from sensors import TYPE_NAMES, fmt_value
 from theme import (GRAPH_STYLES, THEMES, T, alpha_to_pct, dark_titlebar, draw_series, font, is_dark,
                    pct_to_alpha)
 
-TABS = [("general", "Основное"), ("look", "Оформление"), ("sensors", "Датчики"),
+TABS = [("general", "Основное"), ("panels", "Панели"), ("look", "Оформление"), ("sensors", "Датчики"),
         ("apps", "Приложения"), ("naby", "NabyScape")]
 
 
@@ -191,18 +191,10 @@ class SettingsWindow:
         self.check(p, "Скрыть иконки рабочего стола", app.v_icons_hidden,
                    lambda: app.set_desktop_icons_hidden(app.v_icons_hidden.get()))
 
-        self.section(p, "Виджет")
-        self.slider(p, "Прозрачность виджета", alpha_to_pct(app.cfg["alpha"]), 0, 100,
+        self.section(p, "Панели")
+        self.slider(p, "Прозрачность панелей", alpha_to_pct(app.cfg["alpha"]), 0, 100,
                     lambda v: app.set_alpha(pct_to_alpha(v)))
-        cols = tk.Frame(p, bg=T["bg"])
-        cols.pack(fill="x", pady=int(2 * s))
-        tk.Label(cols, text="Колонок плиток:", bg=T["bg"], fg=T["fg"], font=font(10)).pack(side="left")
-        for n in (1, 2, 3, 4):
-            tk.Radiobutton(cols, text=str(n), value=n, variable=app.v_cols, command=app.set_cols,
-                           bg=T["bg"], fg=T["fg"], selectcolor=T["panel"], activebackground=T["bg"],
-                           activeforeground=T["fg"], font=font(10), bd=0,
-                           highlightthickness=0).pack(side="left", padx=int(6 * s))
-        self.check(p, "Закрепить на месте", app.v_lock, app.toggle_lock)
+        self.check(p, "Закрепить все панели на месте", app.v_lock, app.toggle_lock)
         self.check(p, "Поверх всех окон", app.v_top, app.toggle_top)
 
         self.section(p, "Запуск")
@@ -325,7 +317,28 @@ class SettingsWindow:
         row.pack(fill="x", pady=(int(4 * s), 0))
         self.button(row, "Настроить всё одним запросом UAC", app.run_setup, accent=True).pack(side="left")
 
-        self.section(p, "Плитки на виджете")
+        self.section(p, "Плитки")
+        prow = tk.Frame(p, bg=T["bg"])
+        prow.pack(fill="x", pady=(0, int(4 * s)))
+        tk.Label(prow, text="Добавлять в панель:", bg=T["bg"], fg=T["fg"], font=font(10)).pack(side="left")
+        names = {pc["id"]: pc.get("name", pc["id"]) for pc in app.cfg["panels"]}
+        if app.edit_pid not in names:
+            app.edit_pid = next(iter(names))
+        self.v_edit = tk.StringVar(value=names[app.edit_pid])
+
+        def pick(pid):
+            app.edit_pid = pid
+            self.v_edit.set(names[pid])
+            self.fill_sensor_list()
+
+        om = tk.Menubutton(prow, textvariable=self.v_edit, bg=T["panel"], fg=T["fg"], relief="flat",
+                           activebackground=T["hover"], activeforeground=T["fg"], font=font(10, True),
+                           padx=int(10 * s), pady=int(3 * s), cursor="hand2", indicatoron=False)
+        menu = tk.Menu(om, tearoff=0)
+        for pid, name in names.items():
+            menu.add_command(label=name, command=lambda x=pid: pick(x))
+        om.config(menu=menu)
+        om.pack(side="left", padx=int(8 * s))
         srow = tk.Frame(p, bg=T["bg"])
         srow.pack(fill="x", pady=(0, int(4 * s)))
         tk.Label(srow, text="Поиск:", bg=T["bg"], fg=T["fg"], font=font(10)).pack(side="left")
@@ -413,6 +426,76 @@ class SettingsWindow:
             except Exception:
                 pass
         self._status_job = None
+
+    # ---------- вкладка «Панели» ----------
+    def tab_panels(self, p):
+        app, s = self.app, self.app.s
+        top = tk.Frame(p, bg=T["bg"])
+        top.pack(fill="x", pady=(int(4 * s), int(8 * s)))
+        self.button(top, "+ Новая панель", lambda: (app.ask_new_panel(self.win), self.switch("panels")),
+                    accent=True).pack(side="left")
+        tk.Label(p, text="Каждая панель — отдельный виджет со своими плитками. Двигай мышью, "
+                         "ПКМ по панели — её меню. Кнопка приложений — только на одной панели.",
+                 bg=T["bg"], fg=T["muted"], font=font(8), justify="left", anchor="w",
+                 wraplength=int(540 * s)).pack(fill="x")
+        box = ScrollFrame(p)
+        box.pack(fill="both", expand=True, pady=(int(6 * s), 0))
+        self.v_menu_panel = tk.StringVar(value=app.cfg["menu_panel"])
+        for pc in app.cfg["panels"]:
+            pid = pc["id"]
+            card = tk.Frame(box.inner, bg=T["panel"], padx=int(12 * s), pady=int(8 * s))
+            card.pack(fill="x", pady=int(3 * s))
+            head = tk.Frame(card, bg=T["panel"])
+            head.pack(fill="x")
+            tk.Label(head, text=pc.get("name", pid), bg=T["panel"], fg=T["fg"], font=font(11, True)).pack(side="left")
+            n = len(pc["tiles"])
+            tk.Label(head, text=f"  {n} плит{'ка' if n % 10 == 1 and n % 100 != 11 else 'ки' if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else 'ок'}",
+                     bg=T["panel"], fg=T["muted"], font=font(9)).pack(side="left")
+            for sym, cmd, ok in (("✕", lambda x=pid: self.panel_op("remove", x), len(app.cfg["panels"]) > 1),
+                                 ("✎", lambda x=pid: self.panel_op("rename", x), True)):
+                b = tk.Label(head, text=sym, bg=T["panel"], fg=T["fg"] if ok else T["hover"], font=font(11),
+                             padx=int(6 * s), cursor="hand2" if ok else "")
+                b.pack(side="right")
+                if ok:
+                    b.bind("<Button-1>", lambda _e, c=cmd: c())
+            row = tk.Frame(card, bg=T["panel"])
+            row.pack(fill="x", pady=(int(6 * s), 0))
+            tk.Radiobutton(row, text="Кнопка приложений", value=pid, variable=self.v_menu_panel,
+                           command=lambda x=pid: app.set_menu_panel(x), bg=T["panel"], fg=T["fg"],
+                           selectcolor=T["bg"], activebackground=T["panel"], activeforeground=T["fg"],
+                           font=font(9), bd=0, highlightthickness=0).pack(side="left")
+            vh = tk.BooleanVar(value=pc.get("header", True))
+            self._imgs.append(vh)
+            tk.Checkbutton(row, text="Заголовок", variable=vh,
+                           command=lambda x=pid, v=vh: app.set_panel_option(x, "header", v.get()),
+                           bg=T["panel"], fg=T["fg"], selectcolor=T["bg"], activebackground=T["panel"],
+                           activeforeground=T["fg"], font=font(9), bd=0,
+                           highlightthickness=0).pack(side="left", padx=int(12 * s))
+            tk.Label(row, text="Колонки:", bg=T["panel"], fg=T["fg"], font=font(9)).pack(side="left")
+            vc = tk.IntVar(value=pc.get("columns", 2))
+            self._imgs.append(vc)
+            for k in (1, 2, 3, 4):
+                tk.Radiobutton(row, text=str(k), value=k, variable=vc,
+                               command=lambda x=pid, v=vc: app.set_panel_option(x, "columns", v.get()),
+                               bg=T["panel"], fg=T["fg"], selectcolor=T["bg"], activebackground=T["panel"],
+                               activeforeground=T["fg"], font=font(9), bd=0,
+                               highlightthickness=0).pack(side="left")
+            self.button(row, "Плитки…", lambda x=pid: (setattr(app, "edit_pid", x), self.switch("sensors"))).pack(
+                side="right")
+
+    def panel_op(self, op, pid):
+        from tkinter import messagebox, simpledialog
+        app = self.app
+        if op == "remove":
+            name = app.panel_cfg(pid).get("name", "панель")
+            if messagebox.askyesno("Удалить панель", f"Удалить «{name}»?", parent=self.win):
+                app.remove_panel(pid)
+        elif op == "rename":
+            name = simpledialog.askstring("Переименовать", "Название панели:", parent=self.win,
+                                          initialvalue=app.panel_cfg(pid).get("name", ""))
+            if name and name.strip():
+                app.rename_panel(pid, name.strip())
+        self.switch("panels")
 
     # ---------- вкладка «Приложения» ----------
     def tab_apps(self, p):
