@@ -41,9 +41,26 @@ def _bundled_dir():
     return os.path.join(THIRD_PARTY, "nabyscape")
 
 
+def _read(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+def _sources():
+    """Кандидаты (папка, версия) в порядке предпочтения: скачанная копия берётся только если она
+    строго новее русской сборки из установщика — иначе русский NabyScape не перекрывается."""
+    bundled = (_bundled_dir(), _read(os.path.join(_bundled_dir(), "version.txt")))
+    downloaded = (APP_DIR, _read(VERSION_FILE))
+    if _find_exe(bundled[0]) and _ver(downloaded[1]) <= _ver(bundled[1]):
+        return [bundled, downloaded]
+    return [downloaded, bundled]
+
+
 def exe_path():
-    """Скачанное обновление (если есть) важнее версии из установщика."""
-    for base in (APP_DIR, _bundled_dir()):
+    for base, _v in _sources():
         exe = _find_exe(base)
         if exe:
             return exe
@@ -65,12 +82,9 @@ def installed():
 
 
 def installed_version():
-    for path in (VERSION_FILE, os.path.join(_bundled_dir(), "version.txt")):
-        try:
-            with open(path, encoding="utf-8") as f:
-                return f.read().strip()
-        except OSError:
-            continue
+    for base, v in _sources():
+        if v and _find_exe(base):
+            return v
     return None
 
 

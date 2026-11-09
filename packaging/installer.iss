@@ -53,6 +53,7 @@ Name: "sensors"; Description: "Датчики температуры и вент
 [Files]
 Source: "..\dist\SysMonWidget\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "uninstall_nabyscape.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\third_party\nabyscape\*"; DestDir: "{app}\third_party\nabyscape"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\build\third_party\translucenttb\*"; DestDir: "{app}\third_party\translucenttb"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\build\third_party\pawnio\PawnIO_setup.exe"; DestDir: "{app}\third_party\pawnio"; Flags: ignoreversion
@@ -69,6 +70,8 @@ Filename: "{app}\SysMonSensors.exe"; Parameters: "--install-task"; StatusMsg: "�
 Filename: "{app}\SysMonWidget.exe"; Description: "Запустить SysMon Widget"; Flags: postinstall nowait runasoriginaluser
 
 [UninstallRun]
+; NabyScape удаляется вместе с виджетом: процесс, автозапуск, ключи ИИ, настройки и скачанные копии
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\uninstall_nabyscape.ps1"" -AppDir ""{app}"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveNabyScape"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM SysMonWidget.exe"; Flags: runhidden; RunOnceId: "KillWidget"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM SysMonSensors.exe"; Flags: runhidden; RunOnceId: "KillSensors"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM TranslucentTB.exe"; Flags: runhidden; RunOnceId: "KillTTB"
