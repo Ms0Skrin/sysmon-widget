@@ -51,6 +51,10 @@ $iscc = @("$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe", "${env:ProgramFile
   Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 not found (winget install JRSoftware.InnoSetup)" }
 $env:SYSMON_VERSION = $Version
-& $iscc /Q (Join-Path $root "packaging\installer.iss")
+# пишем в build\out: dist\SysMonWidget-Setup.exe может быть занят запущенным установщиком
+$out = Join-Path $build "out"
+& $iscc /Q "/O$out" (Join-Path $root "packaging\installer.iss")
 if ($LASTEXITCODE) { throw "ISCC failed" }
-Get-Item (Join-Path $root "dist\SysMonWidget-Setup.exe") | Select-Object Name, @{n = "MB"; e = { [math]::Round($_.Length / 1MB, 1) } }
+$setup = Join-Path $out "SysMonWidget-Setup.exe"
+try { Copy-Item $setup (Join-Path $root "dist") -Force -ErrorAction Stop } catch { Write-Host "dist copy skipped (file in use)" }
+Get-Item $setup | Select-Object FullName, @{n = "MB"; e = { [math]::Round($_.Length / 1MB, 1) } }
