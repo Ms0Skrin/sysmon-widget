@@ -255,67 +255,83 @@ class Widget:
         self.v_icons_hidden = tk.BooleanVar(value=not desktop.icons_visible())
         self.v_alpha = tk.DoubleVar(value=self.cfg["alpha"])
 
-    def show_panel_menu(self, panel, e):
-        self.v_icons_hidden.set(not desktop.icons_visible())
+    def show_panel_menu(self, panel, e=None, page=None, pos=None):
+        """Меню панели (ПКМ) — в том же стиле, что и меню значка в трее. page — страница подменю."""
+        if panel not in self.panels:
+            return
         pc, pid = panel.cfg, panel.pid
-        m = tk.Menu(self.root, tearoff=0)
-        self._menu_vars = []
+        pos = pos or (e.x_root, e.y_root)
+        keep, sub = {"keep": True}, {"keep": True, "sub": True}
 
-        def var(value, cls=tk.BooleanVar):
-            v = cls(value=value)
-            self._menu_vars.append(v)
-            return v
+        def go(pg=None):  # перерисовать меню на том же месте (другая страница или новые галочки)
+            return lambda: self.show_panel_menu(panel, page=pg, pos=pos)
 
-        m.add_command(label="Приложения", command=lambda: self.launcher.show(self.menu_panel.win))
-        m.add_separator()
-        tiles = tk.Menu(m, tearoff=0)
-        for key, (title, *_r) in TILES.items():
-            v = var(key in pc["tiles"])
-            tiles.add_checkbutton(label=title, variable=v,
-                                  command=lambda k=key, v=v: self.set_tile(k, v.get(), pid=pid))
-            if key == "gpu_card":
-                tiles.add_separator()
-        tiles.add_separator()
-        tiles.add_command(label="Все датчики…", command=lambda: self.open_sensors_for(pid))
-        m.add_cascade(label="Плитки этой панели", menu=tiles)
-        cols = tk.Menu(m, tearoff=0)
-        vc = var(panel.columns, tk.IntVar)
-        for n in (1, 2, 3, 4):
-            cols.add_radiobutton(label=str(n), value=n, variable=vc,
-                                 command=lambda: self.set_panel_option(pid, "columns", vc.get()))
-        m.add_cascade(label="Колонки", menu=cols)
-        vh = var(pc.get("header", True))
-        m.add_checkbutton(label="Заголовок", variable=vh,
-                          command=lambda: self.set_panel_option(pid, "header", vh.get()))
-        vm = var(self.cfg["menu_panel"] == pid)
-        m.add_checkbutton(label="Кнопка приложений на этой панели", variable=vm,
-                          command=lambda: self.set_menu_panel(pid))
-        m.add_separator()
-        m.add_command(label="Новая панель", command=self.add_panel)
-        if len(self.panels) > 1:
-            m.add_command(label="Удалить эту панель", command=lambda: self.confirm_remove(pid))
-        m.add_separator()
-        m.add_checkbutton(label="Закрепить все панели", variable=self.v_lock, command=self.toggle_lock)
-        m.add_checkbutton(label="Поверх всех окон", variable=self.v_top, command=self.toggle_top)
-        m.add_checkbutton(label="Скрыть иконки рабочего стола", variable=self.v_icons_hidden,
-                          command=lambda: self.set_desktop_icons_hidden(self.v_icons_hidden.get()))
-        m.add_command(label="Оформление…", command=lambda: self.settings.show("look"))
-        if self.cfg["naby_enabled"]:
-            nm = tk.Menu(m, tearoff=0)
-            nm.add_command(label="Открыть настройки NabyScape", command=lambda: self.naby_action("settings"))
-            nm.add_command(label="Перезапустить", command=lambda: self.naby_action("restart"))
-            nm.add_command(label="Остановить", command=lambda: self.naby_action("stop"))
-            nm.add_separator()
-            nm.add_command(label="Интеграция…", command=lambda: self.settings.show("naby"))
-            m.add_cascade(label="NabyScape", menu=nm)
-        m.add_separator()
-        m.add_command(label="Настройки…", command=lambda: self.settings.show())
-        m.add_command(label="Скрыть в трей", command=self.hide)
-        m.add_command(label="Выход", command=self.quit)
-        try:
-            m.tk_popup(e.x_root, e.y_root)
-        finally:
-            m.grab_release()
+        def then(fn, pg=None):  # выполнить и оставить меню открытым
+            return lambda: (fn(), go(pg)())
+
+        def check(on):
+            return {"keep": True, "check": bool(on)}
+
+        back = ("back", "Назад", go(), keep)
+        title = pc.get("name", "Панель")
+        if page == "tiles":
+            title = f"Плитки · {title}"
+            items = [back, ("-",)]
+            for key, (name, *_r) in TILES.items():
+                on = key in pc["tiles"]
+                items.append(("", name, then(lambda k=key, on=on: self.set_tile(k, not on, pid=pid), "tiles"),
+                              check(on)))
+                if key == "gpu_card":
+                    items.append(("-",))
+            items += [("-",), ("sensors", "Все датчики…", lambda: self.open_sensors_for(pid))]
+        elif page == "cols":
+            title = f"Колонки · {title}"
+            items = [back, ("-",)]
+            for n in (1, 2, 3, 4):
+                items.append(("", str(n), then(lambda n=n: self.set_panel_option(pid, "columns", n), "cols"),
+                              check(panel.columns == n)))
+        elif page == "naby":
+            title = "NabyScape"
+            items = [back, ("-",),
+                     ("settings", "Открыть настройки", lambda: self.naby_action("settings")),
+                     ("restart", "Перезапустить", lambda: self.naby_action("restart")),
+                     ("stop", "Остановить", lambda: self.naby_action("stop")),
+                     ("-",), ("music", "Интеграция…", lambda: self.settings.show("naby"))]
+        else:
+            header = pc.get("header", True)
+            icons_hidden = not desktop.icons_visible()
+            items = [
+                ("apps", "Приложения", lambda: self.launcher.show(self.menu_panel.win)),
+                ("-",),
+                ("tiles", "Плитки этой панели", go("tiles"), sub),
+                ("cols", f"Колонки: {panel.columns}", go("cols"), sub),
+                ("", "Заголовок", then(lambda: self.set_panel_option(pid, "header", not header)), check(header)),
+                ("", "Кнопка приложений на этой панели", then(lambda: self.set_menu_panel(pid)),
+                 check(self.cfg["menu_panel"] == pid)),
+                ("-",),
+                ("add", "Новая панель", self.add_panel),
+            ]
+            if len(self.panels) > 1:
+                items.append(("delete", "Удалить эту панель", lambda: self.confirm_remove(pid)))
+            items += [
+                ("-",),
+                ("", "Закрепить все панели",
+                 then(lambda: (self.v_lock.set(not self.cfg["locked"]), self.toggle_lock())),
+                 check(self.cfg["locked"])),
+                ("", "Поверх всех окон",
+                 then(lambda: (self.v_top.set(not self.cfg["topmost"]), self.toggle_top())),
+                 check(self.cfg["topmost"])),
+                ("", "Скрыть иконки рабочего стола",
+                 then(lambda: self.set_desktop_icons_hidden(not icons_hidden)), check(icons_hidden)),
+                ("look", "Оформление…", lambda: self.settings.show("look")),
+            ]
+            if self.cfg["naby_enabled"]:
+                items.append(("music", "NabyScape", go("naby"), sub))
+            items += [("-",),
+                      ("settings", "Настройки…", lambda: self.settings.show()),
+                      ("tray", "Скрыть в трей", self.hide),
+                      ("exit", "Выход", self.quit)]
+        self.tray_menu.show(pos[0], pos[1], items, title=title, at_cursor=True, animate=e is not None)
 
     def open_sensors_for(self, pid):
         self.edit_pid = pid
