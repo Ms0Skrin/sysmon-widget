@@ -126,6 +126,40 @@ def _row_color(text, kind):
     return T["hot"] if t >= 85 else T["warn"] if t >= 70 else None
 
 
+def flat_corners(rect, others, screens, radius, tol=2):
+    """Какие углы панели оставить прямыми: (левый верхний, правый верхний, левый нижний, правый нижний).
+    Угол прямой, если одна из его сторон прижата к краю экрана или к ней встык стоит другая
+    панель, закрывающая этот угол, — тогда панели выглядят одним целым.
+    rect и others — (лево, верх, право, низ); screens — рабочая область и весь монитор."""
+    l, t, r, b = rect
+    left = any(l <= s[0] + tol for s in screens)
+    top = any(t <= s[1] + tol for s in screens)
+    right = any(r >= s[2] - tol for s in screens)
+    bottom = any(b >= s[3] - tol for s in screens)
+
+    def side(x_edge, mine_low, y):
+        """Стоит ли сосед встык к вертикальной стороне x_edge и закрывает ли он точку y с запасом на скругление."""
+        for ol, ot, orr, ob in others:
+            near = abs((orr if mine_low else ol) - x_edge) <= tol
+            if near and ot - tol <= y[0] and ob + tol >= y[1]:
+                return True
+        return False
+
+    def cap(y_edge, mine_low, x):
+        for ol, ot, orr, ob in others:
+            near = abs((ob if mine_low else ot) - y_edge) <= tol
+            if near and ol - tol <= x[0] and orr + tol >= x[1]:
+                return True
+        return False
+
+    up, down = (t, t + radius), (b - radius, b)        # отрезки сторон, занятые скруглением
+    lft, rgt = (l, l + radius), (r - radius, r)
+    return (left or top or side(l, True, up) or cap(t, True, lft),
+            right or top or side(r, False, up) or cap(t, True, rgt),
+            left or bottom or side(l, True, down) or cap(b, False, lft),
+            right or bottom or side(r, False, down) or cap(b, False, rgt))
+
+
 class Panel:
     def __init__(self, app, pcfg):
         self.app, self.cfg = app, pcfg
@@ -262,20 +296,40 @@ class Panel:
     def _uptime_text(self):
         return getattr(self.app, "uptime_text", "")
 
-    def reshape(self):
+    def rect(self):
+        x, y = self.win.winfo_x(), self.win.winfo_y()
+        return x, y, x + self.win.winfo_reqwidth(), y + self.win.winfo_reqheight()
+
+    def _shape(self):
+        """Размер окна и прямые углы — то, от чего зависит его форма."""
         self.win.update_idletasks()
-        self._shape_size = (self.win.winfo_reqwidth(), self.win.winfo_reqheight())
-        round_region(self.win, int(18 * self.s), self.win.winfo_reqwidth(), self.win.winfo_reqheight())
+        rect = l, t, r, b = self.rect()
+        others = []
+        for p in self.app.panels:
+            try:
+                if p is not self and p.win.state() != "withdrawn":
+                    others.append(p.rect())
+            except tk.TclError:  # панель уже удалена (идёт пересборка)
+                pass
+        centre = ((l + r) // 2, (t + b) // 2)
+        screens = (work_area(*centre), work_area(*centre, full=True))
+        return (r - l, b - t), flat_corners(rect, others, screens, int(18 * self.s))
+
+    def reshape(self):
+        self._shape_now = size, flat = self._shape()
+        round_region(self.win, int(18 * self.s), size[0], size[1], flat)
+
+    def sync_shape(self):
+        """Обновляет форму, только если она изменилась: панель выросла, сдвинулась к краю или к соседу."""
+        if self.win.state() != "withdrawn" and self._shape() != getattr(self, "_shape_now", None):
+            self.reshape()
 
     def update(self, metrics):
         for key, t in self.tiles.items():
             t.update(metrics.get(key))
         if self.header:
             self.render_header()
-        self.win.update_idletasks()
-        size = (self.win.winfo_reqwidth(), self.win.winfo_reqheight())
-        if size != getattr(self, "_shape_size", None):  # карточка выросла — обновляем скругление окна
-            self.reshape()
+        self.sync_shape()  # карточка выросла или сосед ушёл — обновляем скругление окна
 
     # ---------- положение ----------
     def place(self):
@@ -357,6 +411,8 @@ class Panel:
             if not e.state & 0x20000:  # с зажатым Alt — без прилипания
                 x, y = self._snap(x, y)
             self.win.geometry(f"+{x}+{y}")
+            for p in self.app.panels:  # углы у края экрана и между состыкованными панелями — прямые
+                p.sync_shape()
 
     def _drag_end(self, e):
         if self._reorder:

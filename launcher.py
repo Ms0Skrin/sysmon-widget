@@ -38,12 +38,13 @@ user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
 user32.GetMonitorInfoW.argtypes = [ctypes.c_void_p, ctypes.POINTER(MONITORINFO)]
 
 
-def work_area(x, y):
+def work_area(x, y, full=False):
+    """Рабочая область монитора под точкой (без панели задач); full — весь монитор."""
     mon = user32.MonitorFromPoint(wintypes.POINT(int(x), int(y)), 2)
     mi = MONITORINFO()
     mi.cbSize = ctypes.sizeof(MONITORINFO)
     user32.GetMonitorInfoW(mon, ctypes.byref(mi))
-    r = mi.rcWork
+    r = mi.rcMonitor if full else mi.rcWork
     return r.left, r.top, r.right, r.bottom
 
 

@@ -180,16 +180,27 @@ _gdi32 = ctypes.windll.gdi32
 _gdi32.CreateRoundRectRgn.restype = ctypes.c_void_p
 _gdi32.CreateRoundRectRgn.argtypes = [ctypes.c_int] * 6
 ctypes.windll.user32.SetWindowRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
+_gdi32.CreateRectRgn.restype = ctypes.c_void_p
+_gdi32.CreateRectRgn.argtypes = [ctypes.c_int] * 4
+_gdi32.CombineRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
+_gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
 
 
-def round_region(tk_window, radius, w=None, h=None):
-    """Скругление через форму окна — работает и там, где не работает DWM (окна без рамки)."""
+def round_region(tk_window, radius, w=None, h=None, flat=(False, False, False, False)):
+    """Скругление через форму окна — работает и там, где не работает DWM (окна без рамки).
+    flat — какие углы оставить прямыми: (левый верхний, правый верхний, левый нижний, правый нижний)."""
     try:
         # сначала применяем отложенную геометрию, иначе SetWindowRgn откатит позицию окна в 0,0
         tk_window.update_idletasks()
         w = int(w or tk_window.winfo_width())
         h = int(h or tk_window.winfo_height())
         rgn = _gdi32.CreateRoundRectRgn(0, 0, w + 1, h + 1, int(radius * 2), int(radius * 2))
+        r = int(radius) + 1
+        for on, box in zip(flat, ((0, 0, r, r), (w - r, 0, w, r), (0, h - r, r, h), (w - r, h - r, w, h))):
+            if on:  # прямой угол: добавляем к форме квадрат поверх скругления
+                sq = _gdi32.CreateRectRgn(*box)
+                _gdi32.CombineRgn(rgn, rgn, sq, 2)  # RGN_OR
+                _gdi32.DeleteObject(sq)
         ctypes.windll.user32.SetWindowRgn(_hwnd(tk_window), rgn, True)  # регион переходит окну
     except Exception:
         pass
