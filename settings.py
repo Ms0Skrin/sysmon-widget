@@ -495,6 +495,83 @@ class SettingsWindow:
                                highlightthickness=0).pack(side="left")
             self.button(row, "Плитки…", lambda x=pid: (setattr(app, "edit_pid", x), self.switch("sensors"))).pack(
                 side="right")
+        self.panels_extra(box.inner)
+
+    def panels_extra(self, p):
+        """Низ вкладки «Панели»: раскладки, поведение, погода, перенос настроек."""
+        app, s = self.app, self.app.s
+        self.section(p, "Раскладки")
+        tk.Label(p, text="Раскладка запоминает панели, их плитки и места. Переключать можно и из меню панели.",
+                 bg=T["bg"], fg=T["muted"], font=font(8), justify="left", anchor="w",
+                 wraplength=int(520 * s)).pack(fill="x")
+        for name in list(app.cfg["profiles"]):
+            r = tk.Frame(p, bg=T["bg"])
+            r.pack(fill="x", pady=int(2 * s))
+            tk.Label(r, text=name, bg=T["bg"], fg=T["fg"], font=font(10, True), anchor="w").pack(side="left")
+            self.button(r, "✕", lambda n=name: (app.delete_profile(n), self.switch("panels"))).pack(side="right")
+            self.button(r, "Применить", lambda n=name: (app.apply_profile(n), self.switch("panels"))).pack(
+                side="right", padx=int(6 * s))
+        r = tk.Frame(p, bg=T["bg"])
+        r.pack(fill="x", pady=(int(4 * s), 0))
+        self.button(r, "Сохранить текущую раскладку…",
+                    lambda: (app.ask_save_profile(self.win), self.switch("panels"))).pack(side="left")
+
+        self.section(p, "Поведение")
+        tk.Label(p, text="Панели липнут к краям экрана и друг к другу (Alt — без прилипания). "
+                         "Shift + перетаскивание переставляет плитки внутри панели.",
+                 bg=T["bg"], fg=T["muted"], font=font(8), justify="left", anchor="w",
+                 wraplength=int(520 * s)).pack(fill="x")
+        v_fs = tk.BooleanVar(value=app.cfg.get("hide_fullscreen", True))
+        self._imgs.append(v_fs)
+        self.check(p, "Прятать панели «поверх всех окон» в полноэкранных играх и видео", v_fs,
+                   lambda: self.set_opt("hide_fullscreen", v_fs.get()))
+        for opt, text in (("alert_cpu", "Уведомлять: ЦП горячее"), ("alert_gpu", "Уведомлять: ГП горячее")):
+            self.slider(p, text, app.cfg.get(opt) or 50, 50, 105,
+                        lambda v, k=opt: self.set_opt(k, 0 if v <= 50 else v),
+                        fmt=lambda v: "выкл" if v <= 50 else f"{v} °C")
+
+        self.section(p, "Погода")
+        r = tk.Frame(p, bg=T["bg"])
+        r.pack(fill="x")
+        tk.Label(r, text="Город:", bg=T["bg"], fg=T["fg"], font=font(10)).pack(side="left")
+        city = tk.StringVar(value=app.cfg.get("weather_city", ""))
+        self._imgs.append(city)
+        e = tk.Entry(r, textvariable=city, bg=T["panel"], fg=T["fg"], insertbackground=T["fg"], relief="flat",
+                     font=font(10))
+        e.pack(side="left", fill="x", expand=True, padx=int(8 * s), ipady=int(2 * s))
+        e.bind("<Return>", lambda _e: self.set_opt("weather_city", city.get().strip()))
+        self.button(r, "Сохранить", lambda: self.set_opt("weather_city", city.get().strip())).pack(side="right")
+        tk.Label(p, text="Для плитки «Погода» (данные open-meteo.com; отправляется только название города).",
+                 bg=T["bg"], fg=T["muted"], font=font(8), anchor="w").pack(fill="x")
+
+        self.section(p, "Перенос настроек")
+        r = tk.Frame(p, bg=T["bg"])
+        r.pack(fill="x", pady=(0, int(10 * s)))
+        self.button(r, "Экспорт в файл…", self.export_settings).pack(side="left")
+        self.button(r, "Импорт из файла…", self.import_settings).pack(side="left", padx=int(8 * s))
+
+    def set_opt(self, key, value):
+        self.app.cfg[key] = value
+        self.app.save()
+
+    def export_settings(self):
+        from tkinter import filedialog, messagebox
+        path = filedialog.asksaveasfilename(parent=self.win, title="Экспорт настроек", defaultextension=".json",
+                                            initialfile="sysmon-widget.json", filetypes=[("JSON", "*.json")])
+        if path:
+            try:
+                self.app.export_settings(path)
+            except OSError as ex:
+                messagebox.showerror("Экспорт настроек", str(ex), parent=self.win)
+
+    def import_settings(self):
+        from tkinter import filedialog, messagebox
+        path = filedialog.askopenfilename(parent=self.win, title="Импорт настроек", filetypes=[("JSON", "*.json")])
+        if path and messagebox.askyesno("Импорт настроек", "Текущие настройки будут заменены, виджет "
+                                                           "перезапустится. Продолжить?", parent=self.win):
+            err = self.app.import_settings(path)
+            if err:
+                messagebox.showerror("Импорт настроек", err, parent=self.win)
 
     def panel_op(self, op, pid):
         from tkinter import messagebox, simpledialog

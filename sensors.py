@@ -5,6 +5,8 @@ import subprocess
 import threading
 import time
 
+import psutil
+
 from sensor_host import OUT_PATH
 
 SENSOR_INTERVAL = 1.5
@@ -121,6 +123,33 @@ class Sensors(threading.Thread):
         self.lhm = []          # список датчиков LHM
         self.lhm_ok = False
         self.has_nvidia = True
+        self.want_procs = False  # считать ли топ процессов (только когда есть такая плитка)
+        self.procs = None
+
+    def get_procs(self):
+        with self.lock:
+            return self.procs
+
+    def read_procs(self):
+        """Топ программ по ЦП и памяти (процессы с одним именем складываются) → строки карточки."""
+        ncpu = psutil.cpu_count() or 1
+        cpu, mem = {}, {}
+        count = 0
+        for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):
+            i = p.info
+            if not i["pid"] or not i["name"] or i["name"] == "System Idle Process":
+                continue
+            count += 1
+            name = i["name"][:-4] if i["name"].lower().endswith(".exe") else i["name"]
+            cpu[name] = cpu.get(name, 0.0) + (i["cpu_percent"] or 0.0) / ncpu
+            mem[name] = mem.get(name, 0) + getattr(i["memory_info"], "rss", 0)
+        top_cpu = sorted(cpu.items(), key=lambda kv: -kv[1])[:4]
+        top_mem = sorted(mem.items(), key=lambda kv: -kv[1])[:4]
+        rows = []
+        for (cn, cv), (mn, mv) in zip(top_cpu, top_mem):  # левая колонка — ЦП, правая — память
+            rows.append((cn, f"{cv:.0f}% ЦП", None))
+            rows.append((mn, f"{mv / 1024 ** 3:.1f} ГБ", None))
+        return {"count": count, "rows": rows}
 
     def get(self):
         with self.lock:
@@ -143,8 +172,14 @@ class Sensors(threading.Thread):
             if not all(k in d for k in ("gpu", "gpu_temp", "vram_used", "gpu_pwr")):
                 for k, v in self.read_nvidia().items():
                     d.setdefault(k, v)
+            procs = None
+            if self.want_procs:
+                try:
+                    procs = self.read_procs()
+                except Exception:
+                    procs = None
             with self.lock:
-                self.data, self.lhm, self.lhm_ok = d, lhm, ok
+                self.data, self.lhm, self.lhm_ok, self.procs = d, lhm, ok, procs
             time.sleep(SENSOR_INTERVAL)
 
     def read_nvidia(self):
@@ -210,6 +245,34 @@ def cpu_details(sensors, per_core, load):
     rows.append(("Потоки", f"{len(per_core)}", None))
     rows.append(("Макс. поток", f"{max(per_core):.0f}%" if per_core else "—", None))
     return {"device": name, "ring": load / 100, "ring_text": f"{load:.0f}%", "rows": rows, "bars": per_core}
+
+
+def disk_details(sensors):
+    """Диски: занято/всего по каждому тому и температуры накопителей (если есть датчики LHM)."""
+    gb = 1024 ** 3
+    sysdrive = os.environ.get("SystemDrive", "C:").upper()
+    rows, ring, ring_text = [], 0, "—"
+    for part in psutil.disk_partitions():
+        if "cdrom" in part.opts or not part.fstype:
+            continue
+        try:
+            use = psutil.disk_usage(part.mountpoint)
+        except OSError:
+            continue
+        letter = part.device.rstrip("\\")
+        rows.append((f"Диск {letter}", f"{use.used / gb:.0f} / {use.total / gb:.0f} ГБ",
+                     "hot" if use.percent >= 92 else None))
+        if letter.upper() == sysdrive:
+            ring, ring_text = use.percent / 100, f"{use.percent:.0f}%"
+    seen = set()
+    for s in _vals(sensors, ("Storage",), "Temperature"):
+        if s["hw"] not in seen and s["value"] > 0:
+            seen.add(s["hw"])
+            rows.append((s["hw"], f"{s['value']:.0f} °C", "temp"))
+    if not rows:
+        return None
+    return {"device": f"томов: {len(rows) - len(seen)}", "ring": ring, "ring_text": ring_text,
+            "ring_label": f"диск {sysdrive}", "rows": rows}
 
 
 def gpu_details(sensors, fallback):

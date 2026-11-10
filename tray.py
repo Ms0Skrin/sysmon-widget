@@ -63,7 +63,7 @@ class TrayIcon(threading.Thread):
 
     def _add(self):
         ico = icon_path()
-        hicon = win32gui.LoadImage(None, ico, win32con.IMAGE_ICON, 0, 0,
+        hicon = self.hicon = win32gui.LoadImage(None, ico, win32con.IMAGE_ICON, 0, 0,
                                    win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE)
         nid = (self.hwnd, 0, win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP,
                WM_TRAY, hicon, self.tooltip)
@@ -71,6 +71,17 @@ class TrayIcon(threading.Thread):
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
         except win32gui.error:
             pass  # панель задач ещё не готова — добавим по TaskbarCreated
+
+    def notify(self, title, text):
+        """Всплывающее уведомление Windows от значка в трее."""
+        if not self.hwnd:
+            return
+        nid = (self.hwnd, 0, win32gui.NIF_INFO, WM_TRAY, getattr(self, "hicon", 0), self.tooltip,
+               text[:255], 10, title[:63], win32gui.NIIF_WARNING)
+        try:
+            win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
+        except win32gui.error:
+            pass
 
     def _recreate(self, *_):
         self._add()

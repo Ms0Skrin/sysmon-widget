@@ -14,7 +14,7 @@ ICONS = {  # Segoe Fluent Icons / Segoe MDL2 Assets
 }
 ICONS.update({  # меню панели
     "check": "", "back": "", "more": "", "tiles": "", "cols": "",
-    "add": "", "delete": "", "tray": "", "sensors": "", "stop": "",
+    "add": "", "delete": "", "tray": "", "sensors": "", "stop": "", "scale": "",
 })
 
 

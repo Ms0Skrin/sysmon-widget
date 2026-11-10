@@ -5,9 +5,12 @@
 Кнопка с точками (в выбранной панели) или горячая клавиша — панель приложений.
 Иконка в трее (ПКМ): показать/скрыть, приложения, настройки, обновления, выход.
 """
+import copy
 import ctypes
+import json
 import os
 import queue
+import subprocess
 import sys
 import threading
 import time
@@ -18,6 +21,7 @@ from tkinter import messagebox, simpledialog
 import psutil
 
 import desktop
+import deskwatch
 import nabyscape
 import sensorsvc
 import translucenttb
@@ -25,14 +29,22 @@ import updater
 from config import APP_NAME, autostart_enabled, load_cfg, save_cfg, set_autostart
 from hotkey import HotkeyThread, hotkey_label
 from launcher import Launcher
-from panel import TILES, Panel
-from sensors import Sensors, cpu_details, fmt_rate, fmt_value, gpu_details
+from panel import LAST_CARD, SCALES, TILES, Panel
+from paths import APP_DIR, widget_cmd
+from sensors import Sensors, cpu_details, disk_details, fmt_rate, fmt_value, gpu_details
 from settings import SettingsWindow
 from theme import T, set_theme
 from tray import TrayIcon
 from traymenu import TrayMenu
+from weather import Weather
 
 INTERVAL_MS = 1000
+WATCH_MS = 300          # опрос рабочего стола: Win+D, полноэкранные приложения
+ALERT_AFTER = 5         # сек подряд выше порога — уведомление о перегреве
+ALERT_EVERY = 300       # не чаще, сек
+WEEKDAYS = ("понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье")
+MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября",
+          "октября", "ноября", "декабря")
 
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -99,6 +111,11 @@ class Widget:
         self._naby_busy = False
         self._lhm_watch = False        # следить ли за процессом датчиков (он уже запускался без UAC)
         self._lhm_retry = time.monotonic()
+        self._user_hidden = False      # панели скрыты пользователем (в трей)
+        self._fs_hidden = set()        # id панелей, спрятанных на время полноэкранного приложения
+        self._desk_raised = False      # панели подняты над рабочим столом после Win+D
+        self._alerts = {}              # датчик -> [секунд подряд выше порога, время последнего уведомления]
+        self._disks = (0.0, None)      # (когда считали, карточка дисков)
 
         self.root = root = tk.Tk()
         # Tcl уже загружен; не передаём пути своей сборки запускаемым программам
@@ -121,6 +138,9 @@ class Widget:
         self.last_net = psutil.net_io_counters()
         self.sensors = Sensors()
         self.sensors.start()
+        self.weather = Weather(lambda: self.cfg.get("weather_city", ""),
+                               lambda: any("weather" in p["tiles"] for p in self.cfg["panels"]))
+        self.weather.start()
 
         self.build_panels()
         self.hotkey_ok = self.apply_hotkey()
@@ -128,6 +148,7 @@ class Widget:
         root.after(200, self.tick)
         root.after(1200, self.launcher.prewarm)
         root.after(50, self.poll_cmds)
+        root.after(1500, self.watch_desktop)
         if selftest:
             root.after(6000, self.selftest_dump)
         else:
@@ -235,6 +256,115 @@ class Widget:
         if self.cfg["taskbar_mode"] == "tint":
             self.set_taskbar_mode("tint")
 
+    # ---------- раскладки (профили) и перенос настроек ----------
+    def save_profile(self, name):
+        self.cfg["profiles"][name] = {"panels": copy.deepcopy(self.cfg["panels"]),
+                                      "menu_panel": self.cfg["menu_panel"]}
+        self.save()
+
+    def delete_profile(self, name):
+        self.cfg["profiles"].pop(name, None)
+        self.save()
+
+    def apply_profile(self, name):
+        pr = self.cfg["profiles"].get(name)
+        if not pr or not pr.get("panels"):
+            return
+        self.cfg["panels"] = copy.deepcopy(pr["panels"])
+        self.cfg["menu_panel"] = pr.get("menu_panel")
+        migrate_panels(self.cfg)
+        self.edit_pid = self.cfg["panels"][0]["id"]
+        self._fs_hidden.clear()
+        self.build_panels()
+        if self._user_hidden:
+            self.hide()
+        self.save()
+
+    def ask_save_profile(self, parent=None):
+        name = simpledialog.askstring("Сохранить раскладку", "Название раскладки (панели, плитки и их места):",
+                                      parent=parent, initialvalue=f"Раскладка {len(self.cfg['profiles']) + 1}")
+        if name and name.strip():
+            self.save_profile(name.strip())
+
+    def export_settings(self, path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.cfg, f, indent=2, ensure_ascii=False)
+
+    def import_settings(self, path):
+        """Заменить настройки файлом и перезапустить виджет. → текст ошибки или None."""
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                data = json.load(f)
+        except (OSError, ValueError) as ex:
+            return f"Не удалось прочитать файл: {ex}"
+        if not isinstance(data, dict) or not isinstance(data.get("panels"), list) or not data["panels"]:
+            return "Это не файл настроек SysMon Widget."
+        save_cfg(data)
+        subprocess.Popen(widget_cmd("--restart"), cwd=APP_DIR, creationflags=0x08000000)
+        self.root.after(50, lambda: self.quit(stop_sensors=False))
+        return None
+
+    # ---------- рабочий стол: Win+D и полноэкранные приложения ----------
+    def watch_desktop(self):
+        try:
+            if not self._user_hidden and self.panels:
+                self._hide_for_fullscreen()
+                self._stay_on_desktop()
+        except Exception:
+            pass
+        self.root.after(WATCH_MS, self.watch_desktop)
+
+    def _stay_on_desktop(self):
+        """«Показать рабочий стол» (Win+D) поднимает окно рабочего стола над панелями — возвращаем их
+        наверх. Когда пользователь уходит с рабочего стола, убираем панели под активное окно."""
+        if self.cfg["topmost"]:
+            return
+        wins = [deskwatch.top_hwnd(p.win) for p in self.panels if p.pid not in self._fs_hidden]
+        desk = deskwatch.desktop_window()
+        if not wins or not desk:
+            return
+        if deskwatch.is_above(desk, wins[0]):
+            for h in wins:
+                deskwatch.raise_quietly(h)
+            self._desk_raised = True
+        elif self._desk_raised:
+            fg = deskwatch.foreground_app()
+            if fg:
+                for h in wins:
+                    deskwatch.put_below(h, fg)
+                self._desk_raised = False
+
+    def _hide_for_fullscreen(self):
+        """Панели «поверх всех окон» не должны лежать на полноэкранной игре: прячем те, что на её мониторе."""
+        mon = None
+        if self.cfg["topmost"] and self.cfg.get("hide_fullscreen", True):
+            mon = deskwatch.fullscreen_monitor()
+        for p in self.panels:
+            hide = mon is not None and deskwatch.monitor_of(deskwatch.top_hwnd(p.win)) == mon
+            if hide and p.pid not in self._fs_hidden:
+                self._fs_hidden.add(p.pid)
+                p.win.withdraw()
+            elif not hide and p.pid in self._fs_hidden:
+                self._fs_hidden.discard(p.pid)
+                p.win.deiconify()
+                p.win.attributes("-topmost", self.cfg["topmost"])
+                p.reshape()
+
+    # ---------- предупреждения о перегреве ----------
+    def check_alerts(self, metrics):
+        now = time.monotonic()
+        for key, name, opt in (("cpu_temp", "Процессор", "alert_cpu"), ("gpu_temp", "Видеокарта", "alert_gpu")):
+            limit = self.cfg.get(opt) or 0
+            vals = (metrics.get(key) or {}).get("values")
+            st = self._alerts.setdefault(key, [0, -1e9])
+            if limit and vals and vals[0] >= limit:
+                st[0] += 1
+                if st[0] >= ALERT_AFTER and now - st[1] > ALERT_EVERY and self.tray:
+                    st[1] = now
+                    self.tray.notify("Перегрев", f"{name}: {vals[0]:.0f} °C (порог {limit} °C)")
+            else:
+                st[0] = 0
+
     # ---------- общее ----------
     def save(self, *_):
         save_cfg(self.cfg)
@@ -281,15 +411,31 @@ class Widget:
                 on = key in pc["tiles"]
                 items.append(("", name, then(lambda k=key, on=on: self.set_tile(k, not on, pid=pid), "tiles"),
                               check(on)))
-                if key == "gpu_card":
+                if key == LAST_CARD:
                     items.append(("-",))
-            items += [("-",), ("sensors", "Все датчики…", lambda: self.open_sensors_for(pid))]
+            items += [("-",), ("sensors", "Все датчики…", lambda: self.open_sensors_for(pid)),
+                      ("info", "Shift + перетаскивание — переставить плитки")]
         elif page == "cols":
             title = f"Колонки · {title}"
             items = [back, ("-",)]
             for n in (1, 2, 3, 4):
                 items.append(("", str(n), then(lambda n=n: self.set_panel_option(pid, "columns", n), "cols"),
                               check(panel.columns == n)))
+        elif page == "scale":
+            title = f"Размер · {title}"
+            items = [back, ("-",)]
+            for k in SCALES:
+                items.append(("", f"{k:.0%}", then(lambda k=k: self.set_panel_option(pid, "scale", k), "scale"),
+                              check(abs(float(pc.get("scale", 1.0)) - k) < 0.01)))
+        elif page == "profiles":
+            title = "Раскладки"
+            items = [back, ("-",)]
+            for name in self.cfg["profiles"]:
+                items.append(("cols", name, lambda n=name: self.apply_profile(n)))
+            if not self.cfg["profiles"]:
+                items.append(("info", "Пока нет сохранённых раскладок"))
+            items += [("-",), ("add", "Сохранить текущую…", self.ask_save_profile),
+                      ("info", "Удаление, экспорт и импорт — Настройки → Панели")]
         elif page == "naby":
             title = "NabyScape"
             items = [back, ("-",),
@@ -308,6 +454,10 @@ class Widget:
                 ("", "Заголовок", then(lambda: self.set_panel_option(pid, "header", not header)), check(header)),
                 ("", "Кнопка приложений на этой панели", then(lambda: self.set_menu_panel(pid)),
                  check(self.cfg["menu_panel"] == pid)),
+                ("scale", f"Размер: {float(pc.get('scale', 1.0)):.0%}", go("scale"), sub),
+                ("", "Закрепить эту панель",
+                 then(lambda: self.set_panel_option(pid, "locked", not pc.get("locked"))),
+                 check(pc.get("locked"))),
                 ("-",),
                 ("add", "Новая панель", self.add_panel),
             ]
@@ -323,6 +473,7 @@ class Widget:
                  check(self.cfg["topmost"])),
                 ("", "Скрыть иконки рабочего стола",
                  then(lambda: self.set_desktop_icons_hidden(not icons_hidden)), check(icons_hidden)),
+                ("cols", "Раскладки", go("profiles"), sub),
                 ("look", "Оформление…", lambda: self.settings.show("look")),
             ]
             if self.cfg["naby_enabled"]:
@@ -525,7 +676,7 @@ class Widget:
         self.tray.start()
 
     def hidden(self):
-        return not self.panels or self.panels[0].win.state() == "withdrawn"
+        return self._user_hidden
 
     def show_tray_menu(self, x, y):
         go = lambda name: (lambda: self.cmds.put(name))
@@ -604,10 +755,13 @@ class Widget:
         return False
 
     def hide(self):
+        self._user_hidden = True
         for p in self.panels:
             p.win.withdraw()
 
     def show(self):
+        self._user_hidden = False
+        self._fs_hidden.clear()
         for p in self.panels:
             p.win.deiconify()
             p.win.attributes("-topmost", self.cfg["topmost"])
@@ -693,6 +847,31 @@ class Widget:
             M["cpu_card"] = cpu_details(lhm if ok else [], per, cpu)
         if "gpu_card" in keys:
             M["gpu_card"] = gpu_details(lhm if ok else [], sen)
+        if "disks_card" in keys:
+            if now - self._disks[0] > 15 or self._disks[1] is None:  # объём дисков меняется медленно
+                self._disks = (now, disk_details(lhm if ok else []))
+            M["disks_card"] = self._disks[1]
+        self.sensors.want_procs = "procs_card" in keys
+        if "procs_card" in keys:
+            pr = self.sensors.get_procs()
+            M["procs_card"] = {"device": f"процессов: {pr['count']}" if pr else "считаю…", "ring": cpu / 100,
+                               "ring_text": f"{cpu:.0f}%", "rows": pr["rows"] if pr else []}
+        if "clock" in keys:
+            t = time.localtime()
+            M["clock"] = {"main": time.strftime("%H:%M", t),
+                          "sub": f"{WEEKDAYS[t.tm_wday]}, {t.tm_mday} {MONTHS[t.tm_mon - 1]}"}
+        if "weather" in keys:
+            M["weather"] = self.weather.get()
+        if "battery" in keys:
+            bat = psutil.sensors_battery()
+            if bat is None:
+                M["battery"] = {"main": "нет батареи", "color": T["muted"]}
+            else:
+                left = bat.secsleft
+                sub = ("заряжается" if bat.percent < 100 else "заряжена") if bat.power_plugged else (
+                    f"осталось {left // 3600} ч {left % 3600 // 60:02d} мин" if left and left > 0 else "от батареи")
+                M["battery"] = {"values": [bat.percent], "main": f"{bat.percent:.0f}%", "sub": sub,
+                                "color": T["hot"] if bat.percent <= 15 and not bat.power_plugged else None}
 
         by_id = {x["id"]: x for x in lhm} if ok else {}
         for key in keys:
@@ -712,6 +891,7 @@ class Widget:
         try:
             metrics = self.collect(keys)
             self.watch_sensors()
+            self.check_alerts(metrics)
             if not self.hidden():
                 for p in self.panels:
                     p.update(metrics)

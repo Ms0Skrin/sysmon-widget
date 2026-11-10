@@ -26,6 +26,10 @@ DEFAULTS = {
     "sensor_meta": {},       # "lhm:<id>" -> {"title", "type"} для плиток датчиков
     "naby_enabled": False,   # интеграция NabyScape
     "taskbar_mode": "",      # "" как в Windows | clear | blur | tint
+    "hide_fullscreen": True,  # прятать панели «поверх всех окон» на мониторе с полноэкранной игрой
+    "alert_cpu": 90, "alert_gpu": 90,  # порог уведомления о перегреве, °C (0 — выкл.)
+    "weather_city": "",      # город для плитки «Погода»
+    "profiles": {},          # раскладки: имя -> {"panels": [...], "menu_panel": id}
 }
 
 

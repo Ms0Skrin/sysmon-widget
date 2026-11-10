@@ -12,6 +12,7 @@ GLYPHS = {
     "cpu": "\uE950", "cores": "\uEEA1", "temp": "\uE9CA", "ram": "\uEEA0", "gpu": "\uF211",
     "vram": "\uE964", "power": "\uE945", "disk": "\uEDA2", "net": "\uE774", "fan": "\uE9F3",
     "clock": "\uEC4A", "load": "\uE9D9", "uptime": "\uE823", "data": "\uEDA2",
+    "time": "\uE823", "weather": "\uE706", "battery": "\uE83F", "procs": "\uE9F5",
 }
 SENSOR_GLYPH = {"Temperature": "temp", "Load": "load", "Fan": "fan", "Power": "power", "Clock": "clock",
                 "Voltage": "power", "Current": "power", "Data": "data", "SmallData": "data",
@@ -275,7 +276,8 @@ def apps_button_image(th, s, hover=False):
     return img.resize((size, size), Image.LANCZOS).convert("RGB")
 
 
-def card_image(th, s, w, h, *, glyph, title, device, ring, ring_text, rows, accent, bars=None):
+def card_image(th, s, w, h, *, glyph, title, device, ring, ring_text, rows, accent, bars=None,
+               ring_label="нагрузка"):
     """Большая плитка-карточка: кольцо нагрузки слева, таблица показателей справа, потоки снизу."""
     fam = th.get("font", "Segoe UI")
     img = _card(w, h, th, s).convert("RGBA")
@@ -308,7 +310,7 @@ def card_image(th, s, w, h, *, glyph, title, device, ring, ring_text, rows, acce
     d = ImageDraw.Draw(img, "RGBA")
     d.text((cx, cy - int(2 * s * SS)), ring_text, font=_font("value", int(18 * s * SS), fam),
            fill=hex_rgb(th["fg"]) + (255,), anchor="mm")
-    d.text((cx, cy + int(16 * s * SS)), "нагрузка", font=_font("label", int(9 * s * SS), fam),
+    d.text((cx, cy + int(16 * s * SS)), ring_label, font=_font("label", int(9 * s * SS), fam),
            fill=hex_rgb(th["muted"]) + (255,), anchor="mm")
 
     # таблица показателей: 2 колонки
