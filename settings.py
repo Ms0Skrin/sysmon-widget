@@ -111,7 +111,9 @@ class SettingsWindow:
     def switch(self, key):
         self.tab = key
         self._cancel_status()
-        self.capturing = False
+        if self.capturing:  # ушли с вкладки, не выбрав сочетание, — возвращаем прежнюю горячую клавишу
+            self.capturing = False
+            self.app.apply_hotkey()
         for k, b in self.tab_btns.items():
             b.config(fg=T["accent"] if k == key else T["muted"],
                      bg=T["panel"] if k == key else T["bg"])

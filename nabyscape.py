@@ -43,7 +43,7 @@ def _bundled_dir():
 
 def _read(path):
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:  # version.txt из установщика — с BOM
             return f.read().strip()
     except OSError:
         return None

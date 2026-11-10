@@ -28,7 +28,8 @@ def _git(*args, timeout=30):
 def version():
     if FROZEN:
         try:
-            with open(os.path.join(APP_DIR, "version.txt"), encoding="utf-8") as f:
+            # utf-8-sig: PowerShell пишет version.txt с BOM, а он ломает сравнение версий
+            with open(os.path.join(APP_DIR, "version.txt"), encoding="utf-8-sig") as f:
                 return f.read().strip()
         except OSError:
             return "?"

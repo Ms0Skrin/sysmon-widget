@@ -4,6 +4,7 @@ import math
 import socket
 import tkinter as tk
 from collections import deque
+from ctypes import wintypes
 
 from PIL import ImageTk
 
@@ -12,6 +13,10 @@ from sensors import sensor_max
 from theme import T, round_region, series_colors
 
 HISTORY = 60
+
+_user32 = ctypes.windll.user32
+_user32.MonitorFromRect.restype = ctypes.c_void_p
+_user32.MonitorFromRect.argtypes = [ctypes.POINTER(wintypes.RECT), wintypes.DWORD]
 
 # встроенные плитки: key -> (заголовок, иконка, фикс. максимум или None=авто, вид)
 TILES = {
@@ -250,16 +255,26 @@ class Panel:
     def place(self):
         win, s = self.win, self.app.s
         win.update_idletasks()
-        u = ctypes.windll.user32
-        vx, vy = u.GetSystemMetrics(76), u.GetSystemMetrics(77)
-        vw, vh = u.GetSystemMetrics(78), u.GetSystemMetrics(79)
         x, y = self.cfg.get("x"), self.cfg.get("y")
-        if x is None or y is None or not (vx <= x <= vx + vw - 40 and vy <= y <= vy + vh - 40):
+        fresh = x is None or y is None
+        if fresh or not self._on_screen(x, y):
             idx = [p["id"] for p in self.app.cfg["panels"]].index(self.pid)
             x = win.winfo_screenwidth() - win.winfo_reqwidth() - int(24 * s) - idx * int(40 * s)
             y = int(48 * s) + idx * int(40 * s)
+            if fresh:  # новая панель: место закрепляется сразу и не зависит от соседних панелей
+                self.cfg["x"], self.cfg["y"] = x, y
         win.geometry(f"+{x}+{y}")
         self.reshape()
+
+    def _on_screen(self, x, y):
+        """Видна ли панель хотя бы частично на каком-нибудь мониторе. Панель, прижатая к краю
+        (y = -1) или стоящая на втором мониторе, остаётся на месте; сбрасываем только ту, что
+        целиком оказалась за пределами экранов (монитор отключили)."""
+        m = int(40 * self.app.s)
+        w, h = max(self.win.winfo_reqwidth(), 2 * m + 1), max(self.win.winfo_reqheight(), 2 * m + 1)
+        # заметный кусок панели (не меньше m точек по каждой оси) должен попадать на монитор
+        rect = wintypes.RECT(int(x) + m, int(y) + m, int(x) + w - m, int(y) + h - m)
+        return bool(_user32.MonitorFromRect(ctypes.byref(rect), 0))  # MONITOR_DEFAULTTONULL
 
     def _bind(self, w):
         if self.tag not in w.bindtags():

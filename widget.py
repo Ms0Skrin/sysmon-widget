@@ -97,6 +97,8 @@ class Widget:
         self.naby_msg = ""
         self.taskbar_msg = ""
         self._naby_busy = False
+        self._lhm_watch = False        # следить ли за процессом датчиков (он уже запускался без UAC)
+        self._lhm_retry = time.monotonic()
 
         self.root = root = tk.Tk()
         # Tcl уже загружен; не передаём пути своей сборки запускаемым программам
@@ -371,6 +373,16 @@ class Widget:
         if self.cfg["lhm_enabled"]:
             threading.Thread(target=sensorsvc.start_host, args=(allow_uac,), daemon=True).start()
 
+    def watch_sensors(self):
+        """Процесс датчиков пропал (не успел остановиться при быстром перезапуске виджета, упал) —
+        поднимаем его снова, без запроса UAC."""
+        if self.sensors.get_lhm()[1]:
+            self._lhm_watch = True
+            self._lhm_retry = time.monotonic()
+        elif self.cfg["lhm_enabled"] and self._lhm_watch and time.monotonic() - self._lhm_retry > 20:
+            self._lhm_retry = time.monotonic()
+            self.start_sensors()
+
     def set_lhm_enabled(self, on):
         self.cfg["lhm_enabled"] = on
         self.save()
@@ -389,6 +401,8 @@ class Widget:
         if not self.cfg["lhm_enabled"]:
             return
         if sensorsvc.task_exists() or sensorsvc.host_running():
+            self._lhm_watch = True
+            self._lhm_retry = time.monotonic()
             self.start_sensors()
             return
         if self.cfg["setup_asked"]:
@@ -533,6 +547,9 @@ class Widget:
                     self.naby_action("restart")
                 elif isinstance(cmd, tuple) and cmd[0] == "update_result":
                     self.on_update_result(*cmd[1:])
+                elif isinstance(cmd, tuple) and cmd[0] == "update_applied":
+                    if self.on_update_applied(*cmd[1:]):
+                        return
                 elif cmd == "quit":
                     self.quit()
                     return
@@ -556,12 +573,19 @@ class Widget:
             messagebox.showinfo("Обновления", f"У вас последняя версия ({updater.version()}).")
         elif messagebox.askyesno("Доступно обновление",
                                  f"Новых изменений: {count}\n\n{info}\n\nОбновить и перезапустить?"):
-            ok, out = updater.apply()
-            if ok:
-                updater.restart()
-                self.quit(stop_sensors=False)
-            else:
-                messagebox.showerror("Обновление не удалось", out)
+            # установщик качается в фоне, иначе панели замирают на всё время загрузки
+            self._updating = True
+            threading.Thread(target=lambda: self.cmds.put(("update_applied", *updater.apply())),
+                             daemon=True).start()
+
+    def on_update_applied(self, ok, out):
+        self._updating = False
+        if ok:
+            updater.restart()
+            self.quit(stop_sensors=False)
+            return True  # приложение закрыто — опрос команд прекращаем
+        messagebox.showerror("Обновление не удалось", out)
+        return False
 
     def hide(self):
         for p in self.panels:
@@ -671,6 +695,7 @@ class Widget:
         self.uptime_text = fmt_uptime(time.time() - psutil.boot_time())
         try:
             metrics = self.collect(keys)
+            self.watch_sensors()
             if not self.hidden():
                 for p in self.panels:
                     p.update(metrics)

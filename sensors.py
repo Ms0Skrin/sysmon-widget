@@ -245,7 +245,8 @@ def gpu_details(sensors, fallback):
         if "gpu_temp" in fallback:
             rows.append(("Температура", f"{fallback['gpu_temp']:.0f} °C", "temp"))
         if fallback.get("vram_total"):
-            rows.append(("Видеопамять", f"{fallback['vram_used'] / 1024:.1f} / {fallback['vram_total'] / 1024:.0f} ГБ", None))
+            rows.append(("Видеопамять", f"{fallback.get('vram_used', 0) / 1024:.1f} / "
+                                        f"{fallback['vram_total'] / 1024:.0f} ГБ", None))
         if "gpu_pwr" in fallback:
             rows.append(("Мощность", f"{fallback['gpu_pwr']:.0f} Вт", None))
     if not gpus and not fallback:

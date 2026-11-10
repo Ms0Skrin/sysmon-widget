@@ -190,6 +190,9 @@ class Launcher:
     def hide(self):
         if not self.visible() or self._closing:
             return
+        if self._anim is not None:  # закрыли, пока панель ещё вылетает: просто убираем, без «тени»-сироты
+            self._destroy()
+            return
         self._closing = True
         x, y = self.top.winfo_x(), self.top.winfo_y()
         self._rect = (x, y, self.top.winfo_width(), self.top.winfo_height())
@@ -203,6 +206,7 @@ class Launcher:
             except Exception:
                 pass
             self._anim = None
+            winmm.timeEndPeriod(1)  # прерванная анимация сама точный таймер уже не вернёт
         for w in (self.ghost, self.top):
             if w is not None and w.winfo_exists():
                 w.destroy()
