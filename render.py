@@ -239,8 +239,8 @@ def tile_image(th, s, w, h, *, title, glyph, main, sub="", value_color=None, ser
     return img.resize((w, h), Image.LANCZOS).convert("RGB")
 
 
-def header_image(th, s, w, title, right):
-    """Заголовок виджета: имя ПК слева, «таблетка» аптайма справа."""
+def header_image(th, s, w, title, right, locked=False):
+    """Заголовок виджета: имя ПК слева (с замком, если панель закреплена), «таблетка» аптайма справа."""
     fam = th.get("font", "Segoe UI")
     h = int(30 * s)
     W, H = w * SS, h * SS
@@ -248,6 +248,9 @@ def header_image(th, s, w, title, right):
     d = ImageDraw.Draw(img, "RGBA")
     tf = _font("value", int(14 * s * SS), fam)
     d.text((0, H / 2), title, font=tf, fill=hex_rgb(th["fg"]) + (255,), anchor="lm")
+    if locked:  # значок из шрифта иконок: эмодзи в обычном шрифте рисуется пустым квадратом
+        d.text((d.textlength(title, font=tf) + int(8 * s * SS), H / 2), "",
+               font=_font("icon", int(10 * s * SS)), fill=hex_rgb(th["muted"]) + (255,), anchor="lm")
     rf = _font("label", int(10.5 * s * SS), fam)
     gf = _font("icon", int(10 * s * SS))
     tw = d.textlength(right, font=rf)

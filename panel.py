@@ -255,9 +255,7 @@ class Panel:
         w = max(int(120 * s), self.grid.winfo_reqwidth() - 2 * self.gap -
                 ((self.apps_button.winfo_reqwidth() + int(8 * s)) if self.apps_button else 0))
         title = socket.gethostname() if self.pid == "main" else self.cfg.get("name", "Панель")
-        if self.locked:
-            title += "  🔒"
-        img = render.header_image(T, s, w, title, uptime or self._uptime_text())
+        img = render.header_image(T, s, w, title, uptime or self._uptime_text(), locked=self.locked)
         self._hdr = ImageTk.PhotoImage(img)
         self.header.config(image=self._hdr)
 
