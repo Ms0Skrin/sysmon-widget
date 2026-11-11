@@ -5,6 +5,16 @@
 Кнопка с точками (в выбранной панели) или горячая клавиша — панель приложений.
 Иконка в трее (ПКМ): показать/скрыть, приложения, настройки, обновления, выход.
 """
+import sys
+
+if sys.platform != "win32":  # Linux: тот же виджет на GTK4 + layer-shell (папка linux/)
+    from linux.remote import forward
+    code = forward(sys.argv)  # уже запущен — просто передаём ему команду
+    if code is None:
+        from linux.app import main
+        code = main()
+    sys.exit(code)
+
 import copy
 import ctypes
 import json

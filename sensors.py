@@ -2,16 +2,20 @@
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 
 import psutil
 
-from sensor_host import OUT_PATH
+if sys.platform == "win32":
+    from sensor_host import OUT_PATH
+else:  # Linux: датчики читает linux/sensors.py, файла от процесса датчиков нет
+    OUT_PATH = ""
 
 SENSOR_INTERVAL = 1.5
 STALE_AFTER = 10      # сек — данные LHM считаем устаревшими
-NO_WINDOW = 0x08000000
+NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 UNITS = {
     "Temperature": "°C", "Load": "%", "Clock": "МГц", "Fan": "об/мин", "Power": "Вт",

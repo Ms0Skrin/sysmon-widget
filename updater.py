@@ -15,7 +15,7 @@ from paths import APP_DIR, FROZEN, widget_cmd
 
 REPO = "Ms0Skrin/sysmon-widget"
 SETUP_ASSET = "SysMonWidget-Setup.exe"
-NO_WINDOW = 0x08000000
+NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 UA = {"User-Agent": "sysmon-widget", "Accept": "application/vnd.github+json"}
 _latest = {}
 

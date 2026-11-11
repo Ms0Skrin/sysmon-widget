@@ -1,5 +1,8 @@
 """Темы оформления. Текущая тема — словарь T (меняется на месте через set_theme)."""
 import ctypes
+import json
+import os
+import sys
 
 GRAPH_STYLES = {"area": "Область", "line": "Линия", "bars": "Столбцы", "step": "Ступеньки", "ring": "Кольца"}
 
@@ -56,6 +59,8 @@ T["name"] = "graphite"
 
 def native_theme():
     """Родной стиль Windows 11: системные светлый/тёмный режим и акцентный цвет."""
+    if sys.platform != "win32":
+        return system_theme()
     import winstyle
     acc = winstyle.accent_color()
     if winstyle.system_dark():
@@ -71,6 +76,33 @@ def native_theme():
     return base
 
 
+
+
+def system_theme():
+    """Linux: цвета рабочего стола (палитра Material You от Ryoku/matugen, если есть), иначе тёмная."""
+    c = {}
+    for path in ("~/.cache/ryoku/colors.json", "~/.cache/matugen/colors.json"):
+        try:
+            with open(os.path.expanduser(path), encoding="utf-8") as f:
+                c = {k: v for k, v in json.load(f).items() if isinstance(v, str) and len(v) == 7}
+            break
+        except (OSError, ValueError, AttributeError):
+            pass
+    bg = c.get("surface") or c.get("background") or "#1e1e22"
+    fg = c.get("onSurface") or c.get("foreground") or "#f2f2f2"
+    acc = c.get("primary") or "#62a0ea"
+    dark = is_dark({"bg": bg})
+    return {
+        "title": "Системная", "bg": bg, "fg": fg, "accent": acc,
+        "panel": c.get("surfaceContainer") or blend(fg, bg, 0.07),
+        "hover": c.get("surfaceContainerHighest") or blend(fg, bg, 0.14),
+        "muted": c.get("outline") or blend(fg, bg, 0.55),
+        "graph_bg": blend(fg, bg, 0.04), "warn": "#ffb347" if dark else "#9d5d00",
+        "hot": c.get("error") or ("#ff6b6b" if dark else "#c42b1c"),
+        "font": "Segoe UI", "style": "area", "line_w": 1.5,
+        "p": [acc, c.get("tertiary") or "#b4a0ff", "#6ccb5f", c.get("secondary") or "#60cdff",
+              "#ff8c5a", "#f7c548"],
+    }
 
 
 def set_theme(name, graph_style=None):
@@ -176,14 +208,15 @@ def is_dark(theme=None):
 THEMES = {"windows": native_theme(), **THEMES}  # родная тема — первой в списке
 
 
-_gdi32 = ctypes.windll.gdi32
-_gdi32.CreateRoundRectRgn.restype = ctypes.c_void_p
-_gdi32.CreateRoundRectRgn.argtypes = [ctypes.c_int] * 6
-ctypes.windll.user32.SetWindowRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
-_gdi32.CreateRectRgn.restype = ctypes.c_void_p
-_gdi32.CreateRectRgn.argtypes = [ctypes.c_int] * 4
-_gdi32.CombineRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
-_gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+if sys.platform == "win32":
+    _gdi32 = ctypes.windll.gdi32
+    _gdi32.CreateRoundRectRgn.restype = ctypes.c_void_p
+    _gdi32.CreateRoundRectRgn.argtypes = [ctypes.c_int] * 6
+    ctypes.windll.user32.SetWindowRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
+    _gdi32.CreateRectRgn.restype = ctypes.c_void_p
+    _gdi32.CreateRectRgn.argtypes = [ctypes.c_int] * 4
+    _gdi32.CombineRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
+    _gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
 
 
 def round_region(tk_window, radius, w=None, h=None, flat=(False, False, False, False)):

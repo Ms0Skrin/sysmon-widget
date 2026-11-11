@@ -2,10 +2,13 @@
 скруглённые карточки, плавные кривые с градиентной заливкой, кольца, иконки Fluent."""
 import math
 import os
+import subprocess
+import sys
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 SS = 2  # суперсэмплинг
+WINDOWS = sys.platform == "win32"
 FONTS_DIR = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
 
 GLYPHS = {
@@ -13,7 +16,16 @@ GLYPHS = {
     "vram": "\uE964", "power": "\uE945", "disk": "\uEDA2", "net": "\uE774", "fan": "\uE9F3",
     "clock": "\uEC4A", "load": "\uE9D9", "uptime": "\uE823", "data": "\uEDA2",
     "time": "\uE823", "weather": "\uE706", "battery": "\uE83F", "procs": "\uE9F5",
+    "lock": "\uE72E",
 }
+if not WINDOWS:  # Linux: значки из Nerd Font (Font Awesome + Material Design)
+    GLYPHS = {
+        "cpu": "\uF2DB", "cores": "\uF0C9", "temp": "\uF2C9", "ram": "\U000F035B", "gpu": "\U000F08AE",
+        "vram": "\uF1C0", "power": "\uF0E7", "disk": "\uF0A0", "net": "\uF0EC", "fan": "\U000F0210",
+        "clock": "\uF0E4", "load": "\uF201", "uptime": "\uF017", "data": "\uF0A0",
+        "time": "\uF017", "weather": "\uF0C2", "battery": "\uF241", "procs": "\uF03A",
+        "lock": "\uF023",
+    }
 SENSOR_GLYPH = {"Temperature": "temp", "Load": "load", "Fan": "fan", "Power": "power", "Clock": "clock",
                 "Voltage": "power", "Current": "power", "Data": "data", "SmallData": "data",
                 "Throughput": "net", "Control": "fan"}
@@ -21,11 +33,61 @@ SENSOR_GLYPH = {"Temperature": "temp", "Load": "load", "Fan": "fan", "Power": "p
 _font_cache = {}
 
 
+_fc_cache = {}
+
+
+def _fc(*args):
+    """fontconfig: строка ответа fc-match / fc-list (с кэшем)."""
+    if args not in _fc_cache:
+        try:
+            _fc_cache[args] = subprocess.run(list(args), capture_output=True, text=True, timeout=5).stdout
+        except Exception:
+            _fc_cache[args] = ""
+    return _fc_cache[args]
+
+
+def icon_font_file():
+    """Linux: файл шрифта со значками Nerd Font (или None, если такого нет)."""
+    best = None
+    for line in _fc("fc-list", ":charset=f2db", "file", "family", "style").splitlines():
+        path = line.split(":")[0].strip()
+        if "Nerd Font" not in line or not path:
+            continue
+        rank = (0 if "Symbols" in line else 1, 0 if "Regular" in line else 1,
+                0 if "Mono" not in line and "Propo" not in line else 1, path)
+        if best is None or rank < best:
+            best = rank
+    return best[3] if best else None
+
+
+def _linux_font(kind, size, family):
+    """Шрифты через fontconfig: Inter (или системный без засечек), моноширинный для «Терминала»."""
+    try:
+        if kind == "icon":
+            path = icon_font_file()
+            return ImageFont.truetype(path, size) if path else ImageFont.load_default()
+        base = "monospace" if family == "Consolas" else "Inter"
+        weight = ("bold" if family == "Consolas" else "semibold") if kind == "value" else "regular"
+        path, _, index = _fc("fc-match", "-f", "%{file}|%{index}", f"{base}:{weight}").partition("|")
+        f = ImageFont.truetype(path, size, index=int(index or 0) & 0xFFFF)
+        if kind == "value":
+            try:  # вариативный шрифт: нужная насыщенность задаётся осью
+                f.set_variation_by_name("Bold" if family == "Consolas" else "SemiBold")
+            except Exception:
+                pass
+        return f
+    except Exception:
+        return ImageFont.load_default()
+
+
 def _font(kind, size, family="Segoe UI"):
     """kind: value | label | icon. Шрифты Windows 11 с запасными вариантами."""
     key = (kind, size, family)
     if key in _font_cache:
         return _font_cache[key]
+    if not WINDOWS:
+        f = _font_cache[key] = _linux_font(kind, size, family)
+        return f
     f = None
     if kind == "icon":
         for name in ("SegoeIcons.ttf", "segmdl2.ttf"):
@@ -94,8 +156,22 @@ def _fit(d, text, font, maxw):
     return text.rstrip() + "…"
 
 
+_card_cache = {}
+
+
 def _card(w, h, th, s):
-    """Подложка карточки: скругление, лёгкий вертикальный градиент, тонкая обводка."""
+    """Подложка карточки: скругление, лёгкий вертикальный градиент, тонкая обводка.
+    Одинаковые подложки берутся из кэша — вызывающий не должен менять картинку (только convert)."""
+    key = (w, h, s, th["bg"], th["panel"], th["fg"])
+    img = _card_cache.get(key)
+    if img is None:
+        if len(_card_cache) > 64:
+            _card_cache.clear()
+        img = _card_cache[key] = _card_new(w, h, th, s)
+    return img
+
+
+def _card_new(w, h, th, s):
     W, H, r = w * SS, h * SS, int(14 * s * SS)
     img = Image.new("RGB", (W, H), hex_rgb(th["bg"]))
     top, bot = mix(th["panel"], th["fg"], 0.035), hex_rgb(th["panel"])
@@ -159,10 +235,17 @@ def _graph(img, box, series_list, colors, top, style, th, s):
         d.line(pts, fill=line_rgb + (255,), width=lw if idx == 0 else max(1, lw - SS), joint="curve")
         if idx == 0:  # светящаяся точка на конце
             ex, ey = pts[-1]
-            glow = Image.new("RGBA", img.size, (0, 0, 0, 0))
             gr = 7 * s * SS
-            ImageDraw.Draw(glow).ellipse((ex - gr, ey - gr, ex + gr, ey + gr), fill=rgb + (120,))
-            img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(4 * s * SS)))
+            blur = 4 * s * SS
+            m = int(gr + blur * 3) + 2  # свечение размываем на маленьком кусочке, а не на всей плитке
+            ox, oy = int(ex) - m, int(ey) - m
+            glow = Image.new("RGBA", (2 * m, 2 * m), (0, 0, 0, 0))
+            ImageDraw.Draw(glow).ellipse((ex - ox - gr, ey - oy - gr, ex - ox + gr, ey - oy + gr),
+                                         fill=rgb + (120,))
+            glow = glow.filter(ImageFilter.GaussianBlur(blur))
+            box = (max(0, -ox), max(0, -oy), min(2 * m, img.width - ox), min(2 * m, img.height - oy))
+            if box[2] > box[0] and box[3] > box[1]:
+                img.alpha_composite(glow.crop(box), (ox + box[0], oy + box[1]))
             r = 3.2 * s * SS
             d = ImageDraw.Draw(img, "RGBA")
             d.ellipse((ex - r, ey - r, ex + r, ey + r), fill=rgb + (255,),
@@ -249,7 +332,7 @@ def header_image(th, s, w, title, right, locked=False):
     tf = _font("value", int(14 * s * SS), fam)
     d.text((0, H / 2), title, font=tf, fill=hex_rgb(th["fg"]) + (255,), anchor="lm")
     if locked:  # значок из шрифта иконок: эмодзи в обычном шрифте рисуется пустым квадратом
-        d.text((d.textlength(title, font=tf) + int(8 * s * SS), H / 2), "",
+        d.text((d.textlength(title, font=tf) + int(8 * s * SS), H / 2), GLYPHS["lock"],
                font=_font("icon", int(10 * s * SS)), fill=hex_rgb(th["muted"]) + (255,), anchor="lm")
     rf = _font("label", int(10.5 * s * SS), fam)
     gf = _font("icon", int(10 * s * SS))
